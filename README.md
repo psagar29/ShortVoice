@@ -4,6 +4,8 @@
 
 > **VoiceOS understands language. ShortVoice helps it understand _your_ language.**
 
+**Live dashboard:** [shortvoice-dashboard.vercel.app](https://shortvoice-dashboard.vercel.app)
+
 Voice assistants assume accessibility means everyone can speak fluent, complete sentences.
 ShortVoice is the layer for people who can't, or who shouldn't have to, forty times a day.
 

@@ -138,6 +138,7 @@ export default function Preview() {
               interim={scene.interim}
               pending={scene.pending}
               suggestion={scene.suggestion}
+              listening={scene.listening}
               onConfirm={() => setSceneName("executed")}
               onCancel={() => setSceneName("idle")}
               onAccept={() => setSceneName("beat3")}

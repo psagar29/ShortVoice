@@ -783,3 +783,42 @@
 .review-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
 .review-btn.on { color: #fff; background: rgba(255, 255, 255, 0.18); }
 .review-sep { width: 0.5px; height: 16px; background: rgba(255, 255, 255, 0.22); margin: 0 3px; }
+
+/* ------------------------------------------------------------- waveform ---
+   Listening state. Flat and grey when idle so the space keeps its structure;
+   alive and tinted when the microphone is open. GPU-friendly: only scaleY is
+   animated, never height. */
+
+.wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 96px;
+  flex: none;
+  padding: 0 2px;
+}
+
+.wave i {
+  width: 3px;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--label-4);
+  transform: scaleY(0.05);
+  transform-origin: center;
+  transition: background var(--dur) var(--ease), transform var(--dur-slow) var(--ease);
+}
+
+.wave.on i {
+  background: color-mix(in srgb, var(--purple) var(--mix), var(--blue));
+  animation: bar var(--d) var(--delay) ease-in-out infinite alternate;
+}
+
+@keyframes bar {
+  from { transform: scaleY(0.06); }
+  to   { transform: scaleY(var(--h)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave.on i { animation: none; transform: scaleY(var(--h)); }
+}

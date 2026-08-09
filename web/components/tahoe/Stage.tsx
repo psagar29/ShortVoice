@@ -1,6 +1,7 @@
 "use client";
 
 import type { HeroVM, PendingVM, SuggestionVM } from "@/lib/viewModels";
+import { Waveform } from "./Waveform";
 
 const BAND_LABEL: Record<NonNullable<HeroVM["band"]>, string> = {
   strong: "strong match",
@@ -132,6 +133,8 @@ export function Stage({
   interim,
   pending,
   suggestion,
+  listening,
+  levels,
   onConfirm,
   onCancel,
   onAccept,
@@ -140,6 +143,8 @@ export function Stage({
   interim: string;
   pending: PendingVM | null;
   suggestion: SuggestionVM | null;
+  listening: boolean;
+  levels?: number[];
   onConfirm: () => void;
   onCancel: () => void;
   onAccept: () => void;
@@ -153,6 +158,7 @@ export function Stage({
       {suggestion ? (
         <Suggestion suggestion={suggestion} onAccept={onAccept} />
       ) : null}
+      <Waveform active={listening} levels={levels} />
     </div>
   );
 }

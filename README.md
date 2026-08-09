@@ -243,6 +243,7 @@ thing steering VoiceOS to route short fragments to us instead of interpreting th
 
 | Doc | For |
 |---|---|
+| [`docs/SETUP.md`](docs/SETUP.md) | **Start here on a new machine.** Install, env, VoiceOS wiring, platform support |
 | [`CONTRACT.md`](CONTRACT.md) | Frozen interfaces: schema, MCP tools, Convex signatures, resolver algorithm |
 | [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md) | Reset ritual, station checklist, the verbatim 90-second pitch, rehearsed judge answers |
 | [`docs/FEEDBACK.md`](docs/FEEDBACK.md) | VoiceOS friction log |

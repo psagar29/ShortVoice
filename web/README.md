@@ -60,6 +60,12 @@ on its own. No code change.
 
 ## Who speaks
 
+**Click the 🔇 toggle before the demo starts.** Chrome blocks `audio.play()` until the page
+has had a user gesture, and the dashboard speaks on its own when a confirmation arrives.
+Unmuting is that gesture, so the ordering works out — but if you never click, nothing is
+ever spoken and the console shows an autoplay rejection rather than an error you'd notice.
+
+
 The dashboard starts **muted** so it and the MCP server never say the same sentence at
 once. The header toggle switches ShortVoice's own Deepgram voice on. Agreed split:
 

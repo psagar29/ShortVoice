@@ -87,32 +87,20 @@ const SCENES: Record<SceneName, Scene> = {
 
 const ORDER: SceneName[] = ["idle", "beat1", "executed", "beat2", "beat3"];
 
-/** ?scene=beat2&theme=light — so any single state is linkable and screenshottable. */
-function readUrl(): { scene: SceneName; theme: "light" | "dark" } {
-  if (typeof window === "undefined") return { scene: "beat1", theme: "dark" };
-  const q = new URLSearchParams(window.location.search);
-  const scene = q.get("scene") as SceneName | null;
-  const theme = q.get("theme");
-  return {
-    scene: scene && scene in SCENES ? scene : "beat1",
-    theme: theme === "light" ? "light" : "dark",
-  };
+/** ?scene=beat2 — so any single state is linkable and screenshottable. */
+function readScene(): SceneName {
+  if (typeof window === "undefined") return "beat1";
+  const scene = new URLSearchParams(window.location.search).get("scene") as SceneName | null;
+  return scene && scene in SCENES ? scene : "beat1";
 }
 
 export default function Preview() {
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [sceneName, setSceneName] = useState<SceneName>("beat1");
   const [muted, setMuted] = useState(true);
 
   useEffect(() => {
-    const initial = readUrl();
-    setSceneName(initial.scene);
-    setTheme(initial.theme);
+    setSceneName(readScene());
   }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
 
   const scene = SCENES[sceneName];
 
@@ -160,14 +148,6 @@ export default function Preview() {
             {SCENES[name].label}
           </button>
         ))}
-        <span className="review-sep" />
-        <button
-          type="button"
-          className="review-btn"
-          onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-        >
-          {theme === "dark" ? "Light" : "Dark"}
-        </button>
       </div>
     </>
   );

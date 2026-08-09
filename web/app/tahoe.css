@@ -16,10 +16,16 @@
       the loudest thing on screen.
 
    Layer order:
-      0  desktop wallpaper .......... what the glass refracts
-      1  window chrome (GLASS) ...... titlebar, sidebar
-      2  content surface (SOLID) .... cards, lists, feed
-      3  focus overlays (SOLID+tint)  confirmation, suggestion
+      0  wallpaper ................... what the glass refracts
+      1  window chrome (GLASS) ....... titlebar, sidebar
+      2  content surface (SOLID) ..... cards, lists, feed
+      3  focus overlays (SOLID+tint)   confirmation, suggestion
+
+   The app runs full-bleed, like a maximised Mac window. Because there is no
+   desktop left visible around it, the glass lives on the titlebar and sidebar
+   individually rather than on a floating window shell, and the wallpaper sits
+   behind them as the app's own background. Colour still bleeds through the
+   chrome; the content pane stays opaque. Light only — there is no dark theme.
    =========================================================================== */
 
 /* ---------------------------------------------------------------- tokens ---
@@ -27,22 +33,24 @@
    Apple's system palette (systemBlue #007AFF light / #0A84FF dark, etc).      */
 
 :root {
-  /* Desktop wallpaper — the surface glass samples */
-  --wall-1: #e8ecf5;
-  --wall-2: #dfe6f2;
-  --wall-blob-a: rgba(120, 155, 255, 0.55);
-  --wall-blob-b: rgba(255, 155, 190, 0.42);
-  --wall-blob-c: rgba(120, 220, 220, 0.40);
+  /* Wallpaper — the surface glass samples. Colour is concentrated where the
+     glass actually is (the left edge and the top strip), because anywhere else
+     it would sit behind the opaque content pane and never be seen. */
+  --wall-1: #eef1f8;
+  --wall-2: #e4e9f4;
+  --wall-blob-a: rgba(120, 155, 255, 0.60);
+  --wall-blob-b: rgba(255, 150, 190, 0.46);
+  --wall-blob-c: rgba(110, 215, 220, 0.44);
 
   /* Glass (layer 1) */
-  --glass-fill: rgba(255, 255, 255, 0.62);
+  --glass-fill: rgba(255, 255, 255, 0.58);
   --glass-fill-strong: rgba(255, 255, 255, 0.78);
   --glass-edge: rgba(0, 0, 0, 0.10);
   --specular: rgba(255, 255, 255, 0.95);
   --specular-soft: rgba(255, 255, 255, 0.45);
 
   /* Solid surfaces (layer 2+) */
-  --surface: rgba(255, 255, 255, 0.86);
+  --surface: rgba(255, 255, 255, 0.90);
   --surface-card: #ffffff;
   --surface-sunken: rgba(0, 0, 0, 0.035);
   --surface-hover: rgba(0, 0, 0, 0.04);
@@ -87,44 +95,6 @@
   --dur-slow: 0.5s;
 }
 
-:root[data-theme="dark"] {
-  --wall-1: #0a0d14;
-  --wall-2: #131a28;
-  --wall-blob-a: rgba(70, 105, 255, 0.42);
-  --wall-blob-b: rgba(190, 80, 200, 0.30);
-  --wall-blob-c: rgba(40, 190, 190, 0.26);
-
-  --glass-fill: rgba(30, 36, 48, 0.58);
-  --glass-fill-strong: rgba(28, 34, 46, 0.80);
-  --glass-edge: rgba(255, 255, 255, 0.12);
-  --specular: rgba(255, 255, 255, 0.22);
-  --specular-soft: rgba(255, 255, 255, 0.07);
-
-  --surface: rgba(22, 27, 37, 0.82);
-  --surface-card: #1b2130;
-  --surface-sunken: rgba(255, 255, 255, 0.035);
-  --surface-hover: rgba(255, 255, 255, 0.06);
-  --surface-selected: rgba(10, 132, 255, 0.20);
-
-  --label: rgba(255, 255, 255, 0.95);
-  --label-2: rgba(255, 255, 255, 0.62);
-  --label-3: rgba(255, 255, 255, 0.40);
-  --label-4: rgba(255, 255, 255, 0.24);
-  --separator: rgba(255, 255, 255, 0.10);
-
-  --blue: #0a84ff;
-  --green: #30d158;
-  --orange: #ff9f0a;
-  --red: #ff453a;
-  --purple: #bf5af2;
-  --teal: #40cbe0;
-
-  --shadow-window: 0 60px 140px -20px rgba(0, 0, 0, 0.75),
-                   0 16px 50px -12px rgba(0, 0, 0, 0.55);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 20px -8px rgba(0, 0, 0, 0.45);
-  --shadow-pop: 0 16px 50px -10px rgba(0, 0, 0, 0.6);
-}
-
 /* ------------------------------------------------------------------ base --- */
 
 * { box-sizing: border-box; }
@@ -156,8 +126,6 @@
   background: linear-gradient(165deg, var(--wall-1), var(--wall-2));
   overflow: hidden;
   display: grid;
-  place-items: center;
-  padding: clamp(12px, 2.2vw, 44px);
 }
 
 .desktop::before,
@@ -170,64 +138,67 @@
   pointer-events: none;
 }
 
+/* Behind the sidebar, top. */
 .desktop::before {
-  width: 46vw; height: 46vw;
-  left: -8vw; top: -14vw;
+  width: 42vw; height: 42vw;
+  left: -14vw; top: -18vw;
   background: var(--wall-blob-a);
 }
 
+/* Behind the sidebar, bottom. */
 .desktop::after {
-  width: 40vw; height: 40vw;
-  right: -10vw; bottom: -16vw;
+  width: 34vw; height: 34vw;
+  left: -13vw; bottom: -18vw;
   background: var(--wall-blob-b);
 }
 
+/* Behind the right end of the titlebar, where the metric sits. */
 .desktop > .blob {
-  width: 34vw; height: 34vw;
-  right: 18vw; top: -12vw;
+  width: 40vw; height: 40vw;
+  right: -10vw; top: -26vw;
   background: var(--wall-blob-c);
 }
 
 /* --------------------------------------------------------------- window ---
-   Layer 1. The whole window is one glass surface: a translucent fill, a
-   saturating blur so colour from the wallpaper bleeds through, a hairline
-   edge, and a specular highlight along the top lip where light would catch.  */
+   Full-bleed, like a maximised Mac window: no inset, no corner radius, no
+   drop shadow. It is a layout grid only — the glass itself has moved down onto
+   the titlebar and sidebar, which sit directly on the wallpaper.             */
 
 .window {
   position: relative;
-  width: min(1180px, 100%);
-  height: min(760px, 100%);
+  width: 100%;
+  height: 100%;
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 264px minmax(0, 1fr);
   grid-template-rows: 52px minmax(0, 1fr);
-  border-radius: var(--r-window);
   overflow: hidden;
   isolation: isolate;
-  background: var(--glass-fill);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  box-shadow:
-    inset 0 0.5px 0 0 var(--specular),
-    inset 0 0 0 0.5px var(--glass-edge),
-    var(--shadow-window);
-  animation: window-in 0.6s var(--ease) both;
+  animation: window-in 0.5s var(--ease) both;
 }
 
 @keyframes window-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.985); }
-  to   { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-/* -------------------------------------------------------------- titlebar --- */
+/* -------------------------------------------------------------- titlebar ---
+   Layer 1 (glass). Samples the wallpaper directly — not the sidebar, which is
+   its sibling rather than its backdrop.                                      */
 
 .titlebar {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: var(--s-4);
-  padding: 0 var(--s-4);
-  border-bottom: 0.5px solid var(--separator);
+  padding: 0 var(--s-5);
+  background: var(--glass-fill);
+  backdrop-filter: blur(40px) saturate(190%);
+  -webkit-backdrop-filter: blur(40px) saturate(190%);
+  box-shadow:
+    inset 0 0.5px 0 0 var(--specular),
+    0 0.5px 0 0 var(--separator);
   -webkit-app-region: drag;
+  z-index: 2;
 }
 
 .traffic {
@@ -334,13 +305,18 @@
 
 .sidebar {
   border-right: 0.5px solid var(--separator);
-  padding: var(--s-3) 10px var(--s-2);
+  padding: var(--s-3) 12px var(--s-2);
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
+  /* Glass, sampling the wallpaper beneath. This is the only place colour from
+     the background reaches the eye once the app is full-bleed. */
+  background: var(--glass-fill);
+  backdrop-filter: blur(40px) saturate(190%);
+  -webkit-backdrop-filter: blur(40px) saturate(190%);
 }
 
 .side-head {
@@ -472,11 +448,11 @@
 /* The hero, the confirmation and the suggestion read as one utterance, so they
    are centred as a group rather than stranded at opposite ends of the pane. */
 .stage {
-  padding: var(--s-6) var(--s-6) var(--s-5);
+  padding: var(--s-8) var(--s-10) var(--s-6);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--s-5);
+  gap: var(--s-6);
   min-height: 0;
   min-width: 0;
   overflow-y: auto;
@@ -667,7 +643,7 @@
 
 .feed {
   border-top: 0.5px solid var(--separator);
-  padding: 10px var(--s-6) 12px;
+  padding: 12px var(--s-10) 14px;
   background: var(--surface-sunken);
   min-width: 0;
 }
@@ -750,9 +726,8 @@
 .review-bar {
   position: fixed;
   z-index: 50;
-  left: 50%;
+  right: 16px;
   bottom: 14px;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -794,9 +769,12 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  height: 96px;
+  height: 132px;
   flex: none;
   padding: 0 2px;
+  /* Part of the centred group, not pinned to the floor. Pinning it left a void
+     in the middle of the pane; symmetric breathing room reads as deliberate,
+     a gap in the centre reads as a bug. */
 }
 
 .wave i {

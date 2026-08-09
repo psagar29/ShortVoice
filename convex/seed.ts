@@ -25,14 +25,14 @@ const PHRASES: Array<{
     trigger: "team pr tonight",
     intentTemplate: "Tell the project team I'll review the latest PR tonight",
     actionType: "send_slack",
-    params: { channel: "#project-team" },
+    params: { channel: "#project-team", text: "I'll review the latest PR tonight" },
     slots: [],
   },
   {
     trigger: "neel later",
     intentTemplate: "Tell Neel I'll handle this {when}",
     actionType: "send_slack",
-    params: { contact: "neel" },
+    params: { contact: "neel", text: "I'll handle this {when}" },
     slots: ["when"],
   },
   {

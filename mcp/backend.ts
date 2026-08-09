@@ -87,16 +87,23 @@ export class ShortVoiceBackend {
       throw new Error("CONVEX_URL is required");
     }
     const url = new URL(configuredUrl);
+    // Loopback is allowed so the integration harness can target a local
+    // `npx convex dev` backend; anything remote must be our .convex.cloud.
+    const loopback =
+      url.hostname === "127.0.0.1" || url.hostname === "localhost";
     if (
-      url.protocol !== "https:" ||
-      !url.hostname.endsWith(".convex.cloud") ||
+      (loopback
+        ? url.protocol !== "http:" && url.protocol !== "https:"
+        : url.protocol !== "https:" || !url.hostname.endsWith(".convex.cloud")) ||
       url.username ||
       url.password ||
       (url.pathname !== "/" && url.pathname !== "") ||
       url.search ||
       url.hash
     ) {
-      throw new Error("CONVEX_URL must be an HTTPS .convex.cloud origin");
+      throw new Error(
+        "CONVEX_URL must be an HTTPS .convex.cloud origin (or a local convex dev URL)",
+      );
     }
 
     // Convex's default logger uses console.log, which would corrupt MCP stdio.

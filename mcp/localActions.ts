@@ -104,7 +104,7 @@ end run`;
 
 async function createEvent(params: Record<string, unknown>): Promise<string> {
   const title = requiredString(params, "title", "summary", "name");
-  const startText = requiredString(params, "start", "startAt", "when");
+  const startText = requiredString(params, "whenIso", "start", "startAt", "when");
   const start = new Date(startText);
   if (Number.isNaN(start.getTime())) {
     throw new Error(`Invalid event start time: ${startText}`);

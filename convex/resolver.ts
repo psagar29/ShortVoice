@@ -110,7 +110,7 @@ export type ExecuteResult = {
    */
   localAction?: {
     pendingId: Id<"pendingActions">;
-    type: ActionType;
+    actionType: ActionType;
     params: Record<string, unknown>;
     resolvedIntent: string;
   };
@@ -815,7 +815,7 @@ export const executeConfirmed = action({
       speech: executedSpeech(actionType),
       localAction: {
         pendingId: pending._id,
-        type: actionType,
+        actionType,
         params,
         resolvedIntent: pending.resolvedIntent,
       },

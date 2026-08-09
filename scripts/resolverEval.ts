@@ -117,9 +117,11 @@ async function main() {
   );
 
   // 5 -- cold path ----------------------------------------------------------
-  const cold = await say(userId, "mom flight friday");
+  // seed:seedDemo teaches "mom flight friday" (CONTRACT.md §6's example), so
+  // the untaught-utterance property needs a fragment the seed doesn't cover.
+  const cold = await say(userId, "dad dinner sunday");
   record(
-    'cold path: "mom flight friday" reaches the cold band with no taught phrase',
+    'cold path: "dad dinner sunday" reaches the cold band with no taught phrase',
     (cold as any).band === "cold",
     cold.kind === "confirm"
       ? `expanded -> "${(cold as any).confirmationSpeech}"`

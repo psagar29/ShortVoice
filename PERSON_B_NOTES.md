@@ -56,7 +56,7 @@ finished network action **or** a `localAction` for the Mac to perform:
   speech: string,              // say this
   localAction?: {              // present ONLY for OS-level actions
     pendingId: Id<"pendingActions">,
-    type: "send_message" | "create_event" | "read_screen" | "focus_mode" | "open_app",
+    actionType: "send_message" | "create_event" | "read_screen" | "focus_mode" | "open_app",
     params: Record<string, unknown>,   // e.g. { contact: "mom", contactName: "Rashmi",
                                        //        phone: "+1555...", body: "..." }
     resolvedIntent: string,

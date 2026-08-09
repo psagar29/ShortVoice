@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
+import type { Doc } from "@convex/_generated/dataModel";
 
-import { CallPanel } from "@/components/CallPanel";
-import { Feed } from "@/components/Feed";
-import { Header } from "@/components/Header";
-import { HeardMeant } from "@/components/HeardMeant";
-import { PendingCard } from "@/components/PendingCard";
-import { SuggestionCard } from "@/components/SuggestionCard";
-import { Vocabulary } from "@/components/Vocabulary";
+import { GlassFilterDefs } from "@/components/ui/liquid-glass";
+import { ActivityFeed } from "@/components/tahoe/ActivityFeed";
+import { Sidebar } from "@/components/tahoe/Sidebar";
+import { Stage } from "@/components/tahoe/Stage";
+import { Titlebar } from "@/components/tahoe/Titlebar";
+import type { CallVM, ContactVM, EventVM, HeroVM, PendingVM, PhraseVM, SuggestionVM } from "@/lib/viewModels";
 import { useListener } from "@/lib/useListener";
 import { useSpeaker } from "@/lib/useSpeaker";
 
@@ -20,6 +20,44 @@ const YES = /^(yes|yeah|yep|yup|sure|ok|okay|do it|send it|confirm|go ahead)\b/i
 const NO = /^(no|nope|nah|cancel|stop|never mind|nevermind|forget it)\b/i;
 /** "when I say school mom it means text mom I'm leaving school" */
 const TEACH = /when i say (.+?)[,]? it means (.+)/i;
+
+function toHero(events: Doc<"events">[]): HeroVM {
+  // `events` arrives newest-first from api.events.feed.
+  const heard = events.find((e) => e.kind === "heard");
+  const meant = events.find((e) => e.kind === "resolved" || e.kind === "error");
+
+  // Only show the expansion if it belongs to the utterance on screen. Never
+  // pair a new fragment with the previous expansion.
+  const meantIsCurrent =
+    meant !== undefined && (heard === undefined || meant._creationTime >= heard._creationTime);
+
+  const detail = meant?.kind === "resolved" ? (meant.detail as Record<string, unknown> | undefined) : undefined;
+  const rawScore = detail?.score ?? detail?.matchScore;
+  const score = typeof rawScore === "number" ? rawScore : undefined;
+  const band = typeof detail?.band === "string" ? (detail.band as HeroVM["band"]) : undefined;
+
+  return {
+    heard: heard?.text ?? "",
+    meant: meantIsCurrent && meant ? meant.text : "",
+    band: meantIsCurrent ? band : undefined,
+    score: meantIsCurrent ? score : undefined,
+    latencyMs: meantIsCurrent ? meant?.latencyMs : undefined,
+  };
+}
+
+/** A finished call lingers briefly so the outcome can be read, then gets out of the way. */
+function toCall(call: Doc<"calls"> | null | undefined): CallVM | null {
+  if (!call) return null;
+  const live = call.status === "dialing" || call.status === "in_progress";
+  if (!live && Date.now() - call.createdAt > 90_000) return null;
+  return {
+    id: call._id,
+    business: call.business,
+    status: call.status,
+    turns: call.transcript.slice(-3).map((t) => ({ role: t.role, text: t.text })),
+    outcome: call.outcome,
+  };
+}
 
 export default function Dashboard() {
   // ---- live subscriptions. Every one of these is a Convex useQuery.
@@ -122,6 +160,44 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Rows that existed at page load must never glow, or the whole sidebar
+  // lights up on refresh and the effect stops meaning anything.
+  const openedAt = useRef(Date.now());
+
+  const phraseVMs: PhraseVM[] = useMemo(
+    () =>
+      (phrases ?? []).map((phrase) => ({
+        id: phrase._id,
+        trigger: phrase.trigger,
+        actionType: phrase.actionType,
+        useCount: phrase.useCount,
+        source: phrase.source,
+        fresh: phrase._creationTime > openedAt.current,
+      })),
+    [phrases],
+  );
+
+  const contactVMs: ContactVM[] = useMemo(
+    () => (contacts ?? []).map((c) => ({ id: c._id, alias: c.alias, fullName: c.fullName })),
+    [contacts],
+  );
+
+  const eventVMs: EventVM[] = useMemo(
+    () => events.map((e) => ({ id: e._id, kind: e.kind, text: e.text })),
+    [events],
+  );
+
+  const pendingVM: PendingVM | null = pending
+    ? { id: pending._id, confirmationSpeech: pending.confirmationSpeech }
+    : null;
+
+  const suggestionVM: SuggestionVM | null = suggestion
+    ? { id: suggestion._id, proposedTrigger: suggestion.proposedTrigger, evidenceCount: suggestion.evidenceCount }
+    : null;
+
+  const hero = useMemo(() => toHero(events), [events]);
+  const listening = listener.state === "live";
+
   if (user === undefined) {
     return (
       <div className="setup">
@@ -142,40 +218,44 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="stage">
-      <Header
-        events={events}
-        listenState={listener.state}
-        onToggleListen={listener.toggle}
-        muted={muted}
-        onToggleMute={() => setMuted((m) => !m)}
-      />
+    <>
+      {/* The displacement filter every GlassEffect references. Once, near root. */}
+      <GlassFilterDefs />
 
-      <div className="floor">
-        <div className="stack">
-          <HeardMeant events={events} interim={listener.interim} />
-          <CallPanel call={call} />
-          <PendingCard
-            pending={pending}
-            busy={busy}
-            onConfirm={() => run(() => executeConfirmed({ userId: user._id }))}
-            onCancel={() => run(() => cancelPending({ userId: user._id }))}
-          />
-        </div>
+      <div className="desktop">
+        <div className="blob" />
 
-        <div className="aside">
-          <Vocabulary phrases={phrases} />
-          <SuggestionCard
-            suggestion={suggestion}
-            busy={busy}
-            onAccept={(trigger) =>
-              run(() => acceptSuggestion({ userId: user._id, trigger }))
-            }
+        <div className="window">
+          <Titlebar
+            events={eventVMs}
+            listening={listening}
+            muted={muted}
+            onToggleListen={listener.toggle}
+            onToggleMute={() => setMuted((m) => !m)}
           />
+
+          <Sidebar phrases={phraseVMs} contacts={contactVMs} />
+
+          <div className="content">
+            <Stage
+              hero={hero}
+              interim={listener.interim}
+              pending={pendingVM}
+              suggestion={suggestionVM}
+              call={toCall(call)}
+              listening={listening}
+              onConfirm={() => run(() => executeConfirmed({ userId: user._id }))}
+              onCancel={() => run(() => cancelPending({ userId: user._id }))}
+              onAccept={() =>
+                suggestion
+                  ? run(() => acceptSuggestion({ userId: user._id, trigger: suggestion.proposedTrigger }))
+                  : undefined
+              }
+            />
+            <ActivityFeed events={eventVMs} />
+          </div>
         </div>
       </div>
-
-      <Feed events={events} />
-    </div>
+    </>
   );
 }

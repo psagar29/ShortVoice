@@ -4,8 +4,10 @@
 
 > **VoiceOS understands language. ShortVoice helps it understand _your_ language.**
 
+**Live dashboard:** [shortvoice-dashboard.vercel.app](https://shortvoice-dashboard.vercel.app)
+
 Voice assistants assume accessibility means everyone can speak fluent, complete sentences.
-ShortVoice is the layer for people who can't — or who shouldn't have to, forty times a day.
+ShortVoice is the layer for people who can't, or who shouldn't have to, forty times a day.
 
 ```
                   "Team. PR. Tonight."
@@ -23,10 +25,23 @@ Three words in. Twenty words of intent out.
 
 ---
 
+## Contents
+
+- [What it is](#what-it-is)
+- [How a single utterance flows](#how-a-single-utterance-flows)
+- [Repo map](#repo-map)
+- [Setup](#setup)
+- [The eight MCP tools](#the-eight-mcp-tools)
+- [Gotchas that have already cost us time](#gotchas-that-have-already-cost-us-time)
+- [Docs](#docs)
+- [Verifying it works](#verifying-it-works)
+
+---
+
 ## What it is
 
 A **personal translation layer** between compressed, minimal, or atypical speech and full
-computer intent. Each person builds their own vocabulary — by teaching it out loud, or by
+computer intent. Each person builds their own vocabulary, by teaching it out loud or by
 accepting words the system proposes after noticing them repeat themselves.
 
 It is not a macro list:
@@ -81,19 +96,21 @@ It is not a macro list:
 ```
 
 **Convex is the whole backend.** VoiceOS launches MCP servers over stdio, so `mcp/` lives on one
-Mac and does only what physically requires that Mac — AppleScript, screen capture, audio
+Mac and does only what physically requires that Mac: AppleScript, screen capture, audio
 playback. The lexicon, resolver, vector search, confirmation state machine, learning loop, and
 live feed are all Convex functions.
 
 **Deepgram is the voice and the ears.** ShortVoice speaks confirmations in its own aura-2 voice,
 distinct from VoiceOS so the room can hear which system is talking. It listens with **keyterm
-prompting** primed by the user's own vocabulary — the point being that short, quiet, atypical
-utterances are exactly what generic ASR fumbles. `"school mom"` transcribes as `"school mom"`,
-not `"cool mom"`.
+prompting** primed by the user's own vocabulary, because short, quiet, atypical utterances are
+exactly what generic ASR fumbles. `"school mom"` transcribes as `"school mom"`, not `"cool mom"`.
 
 **Firecrawl closes the loop on lookups.** `"mom flight friday"` doesn't just expand into
-*"Find afternoon flights from SFO for Mom this Friday"* — it comes back with actual flights,
+*"Find afternoon flights from SFO for Mom this Friday."* It comes back with actual flights,
 summarized to one sentence short enough to speak aloud.
+
+**The web dashboard is a live instrument, not a log.** Every panel is a Convex `useQuery`
+subscription, so a phrase taught mid-sentence lands on screen with no refresh and no poll.
 
 ---
 
@@ -102,14 +119,14 @@ summarized to one sentence short enough to speak aloud.
 | Path | What's in it |
 |---|---|
 | `convex/schema.ts` | The data contract: `phrases` (+ vector index), `contacts`, `pendingActions`, `utterances`, `suggestions`, `events` |
-| `convex/resolver.ts` | `resolve`, `executeConfirmed`, `cancelPending` — the core |
+| `convex/resolver.ts` | `resolve`, `executeConfirmed`, `cancelPending`: the core |
 | `convex/embeddings.ts` | OpenAI embeddings + `reseedEmbeddings` backfill |
 | `convex/teach.ts` | *"When I say X it means Y"* → a stored template |
 | `convex/learning.ts` | Clusters repeated utterances, proposes new words |
 | `convex/executors.ts` | Network actions (Slack, web search) |
 | `convex/scrape.ts` | Firecrawl search + scrape |
 | `convex/seed.ts` | Demo user, contacts, starting vocabulary |
-| `convex/http.ts` | `/tts` and `/keyterms`, served from **`.convex.site`** |
+| `convex/http.ts` | `/tts`, `/keyterms`, `/listen-token`, served from **`.convex.site`** |
 | `mcp/server.ts` | The eight-tool MCP surface VoiceOS calls |
 | `mcp/localActions.ts` | iMessage, Calendar, screen read, focus mode |
 | `mcp/spike.ts` | Minimal server for testing VoiceOS routing |
@@ -121,7 +138,7 @@ summarized to one sentence short enough to speak aloud.
 
 ## Setup
 
-### 1. Convex (do this first — everything depends on it)
+### 1. Convex (do this first, everything depends on it)
 
 ```bash
 npm install
@@ -140,7 +157,7 @@ npx convex env set FIRECRAWL_API_KEY fc-...   # optional, powers web_search
 ```
 
 > ⚠️ Without `OPENAI_API_KEY`, `embeddings.ts` silently falls back to hashed vectors.
-> Nothing looks broken — every phrase still gets a 1536-dim vector — but matching becomes
+> Nothing looks broken (every phrase still gets a 1536-dim vector), but matching becomes
 > lexical rather than semantic, and paraphrases stop resolving. Check the return value of
 > `reseedEmbeddings`: it reports `backend: "openai"` or `backend: "hashed-fallback"`.
 
@@ -148,7 +165,7 @@ Then seed:
 
 ```bash
 npx convex run seed:seedDemo
-npx convex run embeddings:reseedEmbeddings   # seeds insert with empty vectors — never skip this
+npx convex run embeddings:reseedEmbeddings   # seeds insert with empty vectors, never skip this
 ```
 
 ### 2. The harness (no VoiceOS required)
@@ -181,7 +198,7 @@ shortvoice> school mom
 npx tsx /absolute/path/to/ShortVoice/mcp/server.ts
 ```
 
-The demo Mac's `.env` (repo root — the MCP server reads `.env`, not `.env.local`):
+The demo Mac's `.env` (repo root; the MCP server reads `.env`, not `.env.local`):
 
 ```bash
 CONVEX_URL=https://<deployment>.convex.cloud
@@ -192,7 +209,7 @@ OPENAI_API_KEY=sk-...          # only for read_screen ("red" / "where")
 
 Test routing in isolation with `mcp/spike.ts` before wiring the real server.
 
-> ⚠️ MCP uses stdio. **Never write to `stdout`** in `mcp/` — it corrupts the protocol.
+> ⚠️ MCP uses stdio. **Never write to `stdout`** in `mcp/`. It corrupts the protocol.
 > All logging goes to `stderr`.
 
 ### 4. Dashboard
@@ -210,15 +227,15 @@ npm install && npm run dev        # localhost:3000
 | Tool | Args | Convex function |
 |---|---|---|
 | `shortvoice_say` | `utterance` | `resolver:resolve` |
-| `shortvoice_confirm` | — | `resolver:executeConfirmed` |
-| `shortvoice_cancel` | — | `resolver:cancelPending` |
+| `shortvoice_confirm` | none | `resolver:executeConfirmed` |
+| `shortvoice_cancel` | none | `resolver:cancelPending` |
 | `shortvoice_teach` | `trigger, meaning` | `teach:teachPhrase` |
-| `shortvoice_list_phrases` | — | `phrases:listPhrases` |
-| `shortvoice_check_suggestion` | — | `learning:pendingSuggestion` |
+| `shortvoice_list_phrases` | none | `phrases:listPhrases` |
+| `shortvoice_check_suggestion` | none | `learning:pendingSuggestion` |
 | `shortvoice_accept_suggestion` | `trigger` | `learning:acceptSuggestion` |
 | `shortvoice_forget` | `trigger` | `phrases:deactivate` |
 
-`shortvoice_say` is the front door. Its tool *description* is prompt engineering — it's the only
+`shortvoice_say` is the front door. Its tool *description* is prompt engineering: it's the only
 thing steering VoiceOS to route short fragments to us instead of interpreting them itself.
 
 ---
@@ -230,12 +247,12 @@ thing steering VoiceOS to route short fragments to us instead of interpreting th
 - **`ctx.vectorSearch` only works inside actions**, never queries or mutations.
 - **Vector search `filter` is equality-only** on declared `filterFields`, and can't `AND` across
   two fields. Filter by `userId`, drop inactive rows in JS afterward.
-- **`"use node"` files can't export other Convex function types** — that's why `embeddings.ts`
+- **`"use node"` files can't export other Convex function types.** That's why `embeddings.ts`
   and `scrape.ts` are isolated.
 - **Seeds carry empty embeddings** (mutations can't call APIs). Forget `reseedEmbeddings` and
   vector search silently matches nothing.
 - **Firecrawl v2** is the `firecrawl` package with `.search()` / `.scrape()`. Older tutorials
-  show `@mendable/firecrawl-js` and `.scrapeUrl()` — different method names.
+  show `@mendable/firecrawl-js` and `.scrapeUrl()`, which use different method names.
 
 ---
 
@@ -266,7 +283,7 @@ The three properties worth checking by hand, because they're the ones that matte
 ```
 "later neel"        → same phrase as "neel later"           (order independence)
 "neel tomorrow"     → same phrase, different {when} slot    (templating, not macros)
-a full paraphrase   → still resolves                        (semantic, not lexical —
+a full paraphrase   → still resolves                        (semantic, not lexical;
                                                              fails if OPENAI_API_KEY is unset)
 ```
 

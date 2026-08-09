@@ -12,3 +12,10 @@ dist/
 *.mp3
 *.wav
 !assets/*.mp3
+
+# web/
+web/.next/
+web/node_modules/
+web/.env.local
+web/next-env.d.ts
+web/*.tsbuildinfo

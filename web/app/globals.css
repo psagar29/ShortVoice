@@ -1,0 +1,479 @@
+/* ===========================================================================
+   ShortVoice dashboard -- built for a washed-out projector and a viewer 30
+   feet away. Every size is a clamp() against viewport width so the layout
+   holds from a 1280x720 projector up to a 4K display without a media query.
+   =========================================================================== */
+
+:root {
+  --bg: #06080d;
+  --panel: #0c1017;
+  --panel-2: #11161f;
+  --line: #1e2632;
+  --text: #f4f7fb;
+  --dim: #8593a6;
+  --dimmer: #56616f;
+
+  --heard: #ffc85c; /* what they said -- amber */
+  --meant: #4fe3b0; /* what they meant -- mint */
+  --await: #7ca8ff;
+  --taught: #c58cff;
+  --error: #ff7a7a;
+
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* the dashboard is a fixed frame, never a scrolling page */
+}
+
+/* --------------------------------------------------------------------- shell */
+
+.shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100vh;
+  gap: clamp(8px, 0.9vw, 16px);
+  padding: clamp(10px, 1.1vw, 22px);
+}
+
+/* minmax(0, …) rather than a bare fr: grid items default to min-width:auto,
+   so one long utterance would otherwise widen the left column and shove MY
+   LANGUAGE off the projector. Every nested container repeats the min-width:0
+   for the same reason. */
+.main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: clamp(8px, 0.9vw, 16px);
+  min-height: 0;
+}
+
+.col {
+  display: grid;
+  gap: clamp(8px, 0.9vw, 16px);
+  min-height: 0;
+  min-width: 0;
+}
+
+.col-left {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.col-right {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: clamp(12px, 1.3vw, 26px);
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-label {
+  font-size: clamp(11px, 0.85vw, 16px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex: none;
+}
+
+/* -------------------------------------------------------------------- header */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.6vw, 32px);
+  padding: clamp(6px, 0.6vw, 12px) clamp(10px, 1vw, 18px);
+  flex: none;
+}
+
+.brand {
+  font-size: clamp(20px, 1.9vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.brand span {
+  color: var(--meant);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  font-size: clamp(13px, 1.05vw, 22px);
+  color: var(--dim);
+  font-weight: 600;
+}
+
+.dot {
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  background: var(--dimmer);
+  flex: none;
+}
+
+.dot.live {
+  background: var(--meant);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.dot.error {
+  background: var(--error);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.82); }
+}
+
+.ratio {
+  margin-left: auto;
+  font-size: clamp(15px, 1.35vw, 30px);
+  font-weight: 700;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.ratio b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ratio .arrow {
+  color: var(--meant);
+  margin: 0 0.4em;
+}
+
+.btn {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--dim);
+  border-radius: 999px;
+  padding: 0.45em 1.1em;
+  font-size: clamp(12px, 0.95vw, 18px);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  color: var(--text);
+  border-color: var(--dimmer);
+}
+
+.btn.on {
+  color: var(--meant);
+  border-color: var(--meant);
+}
+
+.btn.primary {
+  color: var(--bg);
+  background: var(--meant);
+  border-color: var(--meant);
+}
+
+/* ---------------------------------------------------------------- heard/meant */
+
+.hm {
+  display: grid;
+  grid-template-rows: auto minmax(0, auto) auto minmax(0, 1fr);
+  gap: clamp(6px, 0.8vw, 14px);
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.hm > * {
+  min-width: 0;
+}
+
+.heard-text {
+  font-size: clamp(34px, 4.4vw, 92px);
+  line-height: 1.02;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--heard);
+  overflow-wrap: anywhere;
+}
+
+.heard-text.empty,
+.meant-text.empty {
+  color: var(--dimmer);
+  font-weight: 600;
+  font-size: clamp(20px, 1.9vw, 40px);
+  letter-spacing: 0;
+}
+
+.arrow-down {
+  font-size: clamp(20px, 1.8vw, 38px);
+  color: var(--dimmer);
+  line-height: 1;
+}
+
+.meant-text {
+  font-size: clamp(26px, 3.1vw, 66px);
+  line-height: 1.12;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--meant);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+/* The expansion is the entire product in one image -- so animate it. */
+.expand {
+  animation: expand 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes expand {
+  from { opacity: 0; transform: translateY(14px) scale(0.965); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+.score {
+  font-size: clamp(11px, 0.8vw, 15px);
+  color: var(--dimmer);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------- pending */
+
+.pending {
+  border: 2px solid var(--await);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--await) 10%, var(--panel));
+  padding: clamp(12px, 1.2vw, 24px);
+  font-size: clamp(17px, 1.6vw, 34px);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1vw, 20px);
+  animation: expand 400ms ease-out both;
+  flex: none;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pending > span:nth-child(2) {
+  min-width: 0;
+}
+
+.pending .label {
+  color: var(--await);
+  white-space: nowrap;
+}
+
+.pending .actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5em;
+}
+
+/* ---------------------------------------------------------------- vocabulary */
+
+.vocab {
+  list-style: none;
+  margin: clamp(8px, 0.9vw, 16px) 0 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 0.35vw, 7px);
+}
+
+.vocab li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: clamp(5px, 0.55vw, 11px) clamp(8px, 0.7vw, 14px);
+  border-radius: 9px;
+  font-size: clamp(16px, 1.5vw, 32px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  flex: none;
+}
+
+.vocab .uses {
+  margin-left: auto;
+  font-size: 0.62em;
+  color: var(--dimmer);
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.vocab .badge {
+  font-size: 0.6em;
+  color: var(--taught);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* THE demo moment: a phrase taught on stage appears here with no refresh. */
+.vocab li.fresh {
+  animation: fresh 7s ease-out both;
+}
+
+@keyframes fresh {
+  0% {
+    background: color-mix(in srgb, var(--taught) 55%, transparent);
+    box-shadow: 0 0 0 2px var(--taught), 0 0 42px color-mix(in srgb, var(--taught) 60%, transparent);
+    transform: translateX(-14px);
+    opacity: 0;
+  }
+  8% { transform: none; opacity: 1; }
+  55% {
+    background: color-mix(in srgb, var(--taught) 26%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--taught) 60%, transparent), 0 0 24px transparent;
+  }
+  100% { background: transparent; box-shadow: none; }
+}
+
+/* ---------------------------------------------------------------- suggestion */
+
+.suggestion {
+  border: 2px dashed var(--taught);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--taught) 11%, var(--panel));
+  padding: clamp(12px, 1.2vw, 24px);
+  font-size: clamp(16px, 1.45vw, 30px);
+  font-weight: 700;
+  line-height: 1.25;
+  animation: expand 520ms ease-out both;
+  flex: none;
+}
+
+.suggestion .why {
+  color: var(--dim);
+  font-size: 0.72em;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.35em;
+}
+
+.suggestion .word {
+  color: var(--taught);
+}
+
+.suggestion .actions {
+  margin-top: 0.6em;
+  display: flex;
+  gap: 0.5em;
+}
+
+/* -------------------------------------------------------------------- feed */
+
+.feed {
+  flex: none;
+  padding: clamp(8px, 0.8vw, 16px) clamp(12px, 1.3vw, 26px);
+}
+
+.feed-rail {
+  display: flex;
+  gap: clamp(6px, 0.7vw, 14px);
+  overflow-x: auto;
+  margin-top: clamp(5px, 0.5vw, 10px);
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.35em 0.85em;
+  font-size: clamp(11px, 0.9vw, 18px);
+  font-weight: 600;
+  color: var(--dim);
+  white-space: nowrap;
+  flex: none;
+  max-width: 34ch;
+  animation: expand 320ms ease-out both;
+}
+
+.feed-item .k {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82em;
+}
+
+.feed-item .t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.k-heard { color: var(--heard); }
+.k-resolved { color: var(--meant); }
+.k-awaiting { color: var(--await); }
+.k-confirmed, .k-executed { color: var(--meant); }
+.k-taught, .k-suggested { color: var(--taught); }
+.k-cancelled, .k-error { color: var(--error); }
+
+/* -------------------------------------------------------------------- misc */
+
+.setup {
+  display: grid;
+  place-content: center;
+  height: 100vh;
+  text-align: center;
+  gap: 1em;
+  padding: 2rem;
+}
+
+.setup h1 {
+  font-size: clamp(24px, 2.6vw, 52px);
+  margin: 0;
+}
+
+.setup code {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.35em 0.7em;
+  font-size: clamp(14px, 1.2vw, 24px);
+  color: var(--meant);
+}
+
+.interim {
+  color: var(--dimmer);
+  font-style: italic;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }

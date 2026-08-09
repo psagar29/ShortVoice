@@ -151,8 +151,22 @@ http.route({
 http.route({ path: "/keyterms", method: "OPTIONS", handler: preflight });
 
 // ---------------------------------------------------------------------------
-// POST /listen-token -- a short-lived Deepgram grant for the browser listener,
-// so the raw key is never shipped to a page anyone can view-source.
+// POST /listen-token -- credentials for the browser listener.
+//
+// Preferred: a short-lived grant from Deepgram, so the raw key never reaches a
+// page anyone can view-source. That needs a key with token-grant permission;
+// a speech-only key gets 403 "Insufficient permissions" here.
+//
+// Fallback: if DEEPGRAM_ALLOW_RAW_KEY is set to "true" in Convex env, hand the
+// browser the raw key instead. This DOES expose the key to anyone with
+// devtools open. It exists so a demo is never blocked by key scope -- it is
+// opt-in, off by default, and reported back in `mode` so the UI can say so.
+//
+//   npx convex env set DEEPGRAM_ALLOW_RAW_KEY true
+//
+// The two credentials need different WebSocket subprotocols: a grant connects
+// as ["bearer", token], a raw key as ["token", key]. `mode` tells the client
+// which to use.
 // ---------------------------------------------------------------------------
 http.route({
   path: "/listen-token",
@@ -160,27 +174,50 @@ http.route({
   handler: httpAction(async () => {
     const key = deepgramKey();
     if (!key) {
-      return json({ error: "DEEPGRAM_API_KEY is not set in Convex env" }, 500);
+      return json({ error: "DEEPGRAM_API_KEY is not set in Convex env" }, 400);
     }
 
-    const grant = await fetch(`${DEEPGRAM}/v1/auth/grant`, {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ ttl_seconds: LISTEN_TOKEN_TTL_SECONDS }),
-    });
+    const allowRawKey = process.env.DEEPGRAM_ALLOW_RAW_KEY === "true";
 
-    if (!grant.ok) {
-      return json({ error: `deepgram ${grant.status}: ${await grant.text()}` }, 502);
+    try {
+      const grant = await fetch(`${DEEPGRAM}/v1/auth/grant`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ttl_seconds: LISTEN_TOKEN_TTL_SECONDS }),
+      });
+
+      const raw = await grant.text();
+      if (!grant.ok) {
+        if (allowRawKey) {
+          return json({ mode: "raw", token: key, expiresIn: 0 });
+        }
+        // 4xx, not 5xx: a 5xx from an httpAction is swallowed by the edge and
+        // replaced with a bare "error code: 502", which hides the real cause.
+        return json(
+          {
+            error: `deepgram ${grant.status}: ${raw}`,
+            hint:
+              grant.status === 403
+                ? "this key cannot mint tokens; use a key with token-grant permission, or set DEEPGRAM_ALLOW_RAW_KEY=true in Convex env"
+                : undefined,
+          },
+          400,
+        );
+      }
+
+      const body = JSON.parse(raw);
+      return json({
+        mode: "grant",
+        token: body.access_token,
+        expiresIn: body.expires_in ?? LISTEN_TOKEN_TTL_SECONDS,
+      });
+    } catch (err) {
+      if (allowRawKey) return json({ mode: "raw", token: key, expiresIn: 0 });
+      return json({ error: `listen-token failed: ${String(err)}` }, 400);
     }
-
-    const body = await grant.json();
-    return json({
-      token: body.access_token,
-      expiresIn: body.expires_in ?? LISTEN_TOKEN_TTL_SECONDS,
-    });
   }),
 });
 http.route({ path: "/listen-token", method: "OPTIONS", handler: preflight });

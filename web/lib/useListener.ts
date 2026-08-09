@@ -103,7 +103,13 @@ export function useListener({
           setState("error");
           return;
         }
-        const { token } = (await tokenRes.json()) as { token: string };
+        const { token, mode } = (await tokenRes.json()) as {
+          token: string;
+          mode?: "grant" | "raw";
+        };
+        // A short-lived grant authenticates as ["bearer", ...]; a raw API key
+        // authenticates as ["token", ...]. /listen-token says which it sent.
+        const subprotocol = mode === "raw" ? "token" : "bearer";
 
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
@@ -121,7 +127,7 @@ export function useListener({
         for (const term of terms) params.append("keyterm", term);
 
         const socket = new WebSocket(`${DEEPGRAM_WS}?${params.toString()}`, [
-          "bearer",
+          subprotocol,
           token,
         ]);
         socketRef.current = socket;

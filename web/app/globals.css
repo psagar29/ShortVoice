@@ -48,9 +48,13 @@ body {
   padding: clamp(10px, 1.1vw, 22px);
 }
 
+/* minmax(0, …) rather than a bare fr: grid items default to min-width:auto,
+   so one long utterance would otherwise widen the left column and shove MY
+   LANGUAGE off the projector. Every nested container repeats the min-width:0
+   for the same reason. */
 .main {
   display: grid;
-  grid-template-columns: 1.45fr 1fr;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   gap: clamp(8px, 0.9vw, 16px);
   min-height: 0;
 }
@@ -59,6 +63,7 @@ body {
   display: grid;
   gap: clamp(8px, 0.9vw, 16px);
   min-height: 0;
+  min-width: 0;
 }
 
 .col-left {
@@ -75,6 +80,7 @@ body {
   border-radius: var(--radius);
   padding: clamp(12px, 1.3vw, 26px);
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -197,6 +203,11 @@ body {
   gap: clamp(6px, 0.8vw, 14px);
   flex: 1;
   min-height: 0;
+  min-width: 0;
+}
+
+.hm > * {
+  min-width: 0;
 }
 
 .heard-text {
@@ -205,7 +216,7 @@ body {
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--heard);
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .heard-text.empty,
@@ -229,7 +240,7 @@ body {
   letter-spacing: -0.02em;
   color: var(--meant);
   overflow-y: auto;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* The expansion is the entire product in one image -- so animate it. */
@@ -264,6 +275,12 @@ body {
   gap: clamp(10px, 1vw, 20px);
   animation: expand 400ms ease-out both;
   flex: none;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pending > span:nth-child(2) {
+  min-width: 0;
 }
 
 .pending .label {
@@ -295,6 +312,8 @@ body {
   display: flex;
   align-items: baseline;
   gap: 0.6em;
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: clamp(5px, 0.55vw, 11px) clamp(8px, 0.7vw, 14px);
   border-radius: 9px;
   font-size: clamp(16px, 1.5vw, 32px);

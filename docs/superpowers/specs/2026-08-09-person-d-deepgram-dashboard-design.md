@@ -14,9 +14,36 @@ Every query the dashboard is specified to make (`api.phrases.listPhrases`, `api.
 `api.pending.getAwaiting`, `api.learning.pendingSuggestion`) and every write the demo depends on
 (`api.resolver.resolve`, `api.teach.teachPhrase`) therefore had nothing behind it.
 
-## Decisions
+## What actually happened
 
-**1. A quarantined A/B stub surface, landed as a separate revertable commit.**
+The premise above was wrong, and finding that out cost real time. A and B had not
+*pushed to GitHub* yet, but they were working, and both landed mid-session:
+`person-a/convex-core` and `person-b/resolver` (a superset of A's). Meanwhile all four of
+us were pointed at one Convex deployment, where `npx convex dev` replaces the deployment's
+**entire** function set with whatever is in the pusher's local `convex/` directory.
+
+The consequences played out exactly as `CONTRACT.md` §3 predicts:
+
+1. Deploying D's stub tree deleted A's deployed functions.
+2. A's next push deleted D's `http.ts` — all three routes 404'd with
+   *"this deployment does not have HTTP actions enabled"* — and B's functions with it.
+3. The only stable state is a tree containing everyone's files, which is Person E's job.
+
+So the stub layer was **reverted** (commit `3864ca9`) once B's real code was on GitHub, and
+branch D now contains only `convex/http.ts` and `web/**`. A local integration branch
+(B's branch merged with D's — it merges clean, the two are disjoint) was deployed to
+restore A + B + D together, since the deployment had been left with A only and B's
+resolver missing.
+
+**B's signatures matched `CONTRACT.md` exactly, so the dashboard needed no changes.** The
+one adjustment was cosmetic: B logs `detail.score` and `detail.band` on a resolved event,
+not `detail.matchScore`. That is the whole return on coding against a frozen contract.
+
+## Original decisions (superseded where noted)
+
+**1. A quarantined A/B stub surface, landed as a separate revertable commit.** *(Reverted —
+see above. It did its job: it kept the dashboard runnable and verifiable for the hours
+before A and B pushed.)*
 
 Without a backend the dashboard can be written but not run, and none of PERSON_D.md's acceptance
 criteria can be demonstrated. So we land the function surface exactly as frozen in `CONTRACT.md`

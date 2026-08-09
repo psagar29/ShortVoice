@@ -14,11 +14,28 @@
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { action, internalMutation } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { fillSlots, renderTemplate, scoreTrigger } from "./lib/matching";
 import { tokenize } from "./lib/normalize";
 
 const STRONG_MATCH = 0.82;
 const WEAK_MATCH = 0.65;
+
+/**
+ * Declared explicitly rather than inferred: these handlers call ctx.runQuery
+ * on `api`, which contains this file, so TypeScript needs the return type
+ * stated to break the cycle. The shapes are the ones frozen in CONTRACT.md.
+ */
+export type ResolveResult =
+  | {
+      kind: "confirm";
+      pendingId: Id<"pendingActions">;
+      confirmationSpeech: string;
+      resolvedIntent: string;
+      matchScore?: number;
+    }
+  | { kind: "clarify"; speech: string }
+  | { kind: "unknown"; speech: string };
 
 /** The utterances table is the training data for auto-suggest. */
 export const recordUtterance = internalMutation({
@@ -47,7 +64,7 @@ function asQuestion(intent: string): string {
 
 export const resolve = action({
   args: { userId: v.id("users"), utterance: v.string() },
-  handler: async (ctx, { userId, utterance }) => {
+  handler: async (ctx, { userId, utterance }): Promise<ResolveResult> => {
     const startedAt = Date.now();
 
     await ctx.runMutation(internal.events.log, {
@@ -56,10 +73,11 @@ export const resolve = action({
       text: utterance,
     });
 
-    const [phrases, contacts] = await Promise.all([
-      ctx.runQuery(api.phrases.listPhrases, { userId }),
-      ctx.runQuery(api.contacts.listContacts, { userId }),
-    ]);
+    const [phrases, contacts]: [Doc<"phrases">[], Doc<"contacts">[]] =
+      await Promise.all([
+        ctx.runQuery(api.phrases.listPhrases, { userId }),
+        ctx.runQuery(api.contacts.listContacts, { userId }),
+      ]);
 
     const ranked = phrases
       .map((phrase) => ({ phrase, ...scoreTrigger(phrase.trigger, utterance) }))
@@ -199,8 +217,11 @@ export const resolve = action({
 
 export const executeConfirmed = action({
   args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    const pending = await ctx.runQuery(api.pending.getAwaiting, { userId });
+  handler: async (ctx, { userId }): Promise<{ ok: boolean; speech: string }> => {
+    const pending: Doc<"pendingActions"> | null = await ctx.runQuery(
+      api.pending.getAwaiting,
+      { userId },
+    );
     if (!pending) {
       return { ok: false, speech: "There's nothing waiting for a yes." };
     }
@@ -236,8 +257,11 @@ export const executeConfirmed = action({
 
 export const cancelPending = action({
   args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    const pending = await ctx.runQuery(api.pending.getAwaiting, { userId });
+  handler: async (ctx, { userId }): Promise<{ speech: string }> => {
+    const pending: Doc<"pendingActions"> | null = await ctx.runQuery(
+      api.pending.getAwaiting,
+      { userId },
+    );
     if (!pending) return { speech: "Nothing to cancel." };
 
     await ctx.runMutation(internal.pending.setStatus, {

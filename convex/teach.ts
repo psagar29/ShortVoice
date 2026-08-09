@@ -12,6 +12,7 @@
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { action } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { fakeEmbedding } from "./embeddings";
 import { inferActionType, parseMeaning } from "./lib/intent";
 import { normalizeTrigger } from "./lib/normalize";
@@ -22,11 +23,17 @@ export const teachPhrase = action({
     trigger: v.string(),
     meaning: v.string(),
   },
-  handler: async (ctx, { userId, trigger, meaning }) => {
+  handler: async (
+    ctx,
+    { userId, trigger, meaning },
+  ): Promise<{ speech: string; phraseId: Id<"phrases"> }> => {
     const { intentTemplate, slots, slotDefaults } = parseMeaning(meaning);
     const actionType = inferActionType(meaning);
 
-    const contacts = await ctx.runQuery(api.contacts.listContacts, { userId });
+    const contacts: Doc<"contacts">[] = await ctx.runQuery(
+      api.contacts.listContacts,
+      { userId },
+    );
     const haystack = meaning.toLowerCase();
     const contact = contacts.find(
       (c) =>
@@ -41,7 +48,7 @@ export const teachPhrase = action({
       if (contact.slackId) params.slackId = contact.slackId;
     }
 
-    const phraseId = await ctx.runMutation(internal.phrases.insertPhrase, {
+    const phraseId: Id<"phrases"> = await ctx.runMutation(internal.phrases.insertPhrase, {
       userId,
       trigger: trigger.trim(),
       normalizedTrigger: normalizeTrigger(trigger),

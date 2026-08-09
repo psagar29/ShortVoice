@@ -21,6 +21,7 @@ import { fakeEmbedding } from "./embeddings";
 import { inferActionType, parseMeaning, proposeTrigger } from "./lib/intent";
 import { normalizeTrigger } from "./lib/normalize";
 import { actionType } from "./schema";
+import type { Doc, Id } from "./_generated/dataModel";
 
 /** How many times you have to repeat yourself before we offer you a word. */
 const EVIDENCE_THRESHOLD = 3;
@@ -98,14 +99,17 @@ export const markSuggestion = internalMutation({
 
 export const maybeSuggest = internalAction({
   args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    const existing = await ctx.runQuery(api.learning.pendingSuggestion, { userId });
+  handler: async (ctx, { userId }): Promise<Id<"suggestions"> | null> => {
+    const existing: Doc<"suggestions"> | null = await ctx.runQuery(
+      api.learning.pendingSuggestion,
+      { userId },
+    );
     if (existing) return null;
 
-    const recent = await ctx.runQuery(internal.learning.recentUnphrased, {
-      userId,
-      since: Date.now() - WINDOW_MS,
-    });
+    const recent: Doc<"utterances">[] = await ctx.runQuery(
+      internal.learning.recentUnphrased,
+      { userId, since: Date.now() - WINDOW_MS },
+    );
 
     // Group utterances that mean the same thing regardless of word order.
     const groups = new Map<string, { raw: string; intent?: string }[]>();
@@ -126,24 +130,27 @@ export const maybeSuggest = internalAction({
     const proposed = proposeTrigger(raws);
 
     // Don't offer a word they already have.
-    const clash = await ctx.runQuery(api.phrases.getByTrigger, {
-      userId,
-      normalizedTrigger: normalizeTrigger(proposed),
-    });
+    const clash: Doc<"phrases"> | null = await ctx.runQuery(
+      api.phrases.getByTrigger,
+      { userId, normalizedTrigger: normalizeTrigger(proposed) },
+    );
     if (clash) return null;
 
     const sourceIntent = repeated.find((r) => r.intent)?.intent ?? raws[0];
     const { intentTemplate } = parseMeaning(sourceIntent);
 
-    const suggestionId = await ctx.runMutation(internal.learning.insertSuggestion, {
-      userId,
-      proposedTrigger: proposed,
-      intentTemplate,
-      actionType: inferActionType(sourceIntent),
-      params: {},
-      evidenceCount: repeated.length,
-      evidenceUtterances: raws.slice(0, 5),
-    });
+    const suggestionId: Id<"suggestions"> = await ctx.runMutation(
+      internal.learning.insertSuggestion,
+      {
+        userId,
+        proposedTrigger: proposed,
+        intentTemplate,
+        actionType: inferActionType(sourceIntent),
+        params: {},
+        evidenceCount: repeated.length,
+        evidenceUtterances: raws.slice(0, 5),
+      },
+    );
 
     await ctx.runMutation(internal.events.log, {
       userId,
@@ -158,8 +165,14 @@ export const maybeSuggest = internalAction({
 
 export const acceptSuggestion = action({
   args: { userId: v.id("users"), trigger: v.string() },
-  handler: async (ctx, { userId, trigger }) => {
-    const suggestion = await ctx.runQuery(api.learning.pendingSuggestion, { userId });
+  handler: async (
+    ctx,
+    { userId, trigger },
+  ): Promise<{ speech: string; phraseId?: Id<"phrases"> }> => {
+    const suggestion: Doc<"suggestions"> | null = await ctx.runQuery(
+      api.learning.pendingSuggestion,
+      { userId },
+    );
     if (!suggestion) {
       return { speech: "There's no suggestion waiting." };
     }
@@ -167,7 +180,7 @@ export const acceptSuggestion = action({
     // The user may counter-offer a different word than the one we proposed.
     const chosen = trigger.trim() || suggestion.proposedTrigger;
 
-    const phraseId = await ctx.runMutation(internal.phrases.insertPhrase, {
+    const phraseId: Id<"phrases"> = await ctx.runMutation(internal.phrases.insertPhrase, {
       userId,
       trigger: chosen,
       normalizedTrigger: normalizeTrigger(chosen),

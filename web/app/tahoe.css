@@ -1,0 +1,785 @@
+/* ===========================================================================
+   ShortVoice — macOS Tahoe / Liquid Glass design system
+   ===========================================================================
+
+   Three rules from Apple's HIG that shape everything below:
+
+   1. HIERARCHY THROUGH DEPTH, not colour contrast. Importance is expressed by
+      translucency, refraction and specular edges — not by making things louder.
+
+   2. GLASS CANNOT SAMPLE GLASS. There is exactly one glass layer: the window
+      chrome (titlebar + sidebar). Everything inside the content area is a
+      solid surface. Nesting translucency is what makes web "glassmorphism"
+      look cheap, and Apple explicitly forbids it.
+
+   3. THE UI SERVES THE CONTENT. Chrome recedes; the sentence the user meant is
+      the loudest thing on screen.
+
+   Layer order:
+      0  desktop wallpaper .......... what the glass refracts
+      1  window chrome (GLASS) ...... titlebar, sidebar
+      2  content surface (SOLID) .... cards, lists, feed
+      3  focus overlays (SOLID+tint)  confirmation, suggestion
+   =========================================================================== */
+
+/* ---------------------------------------------------------------- tokens ---
+   Semantic roles, not raw hex, so light/dark comes for free. Values follow
+   Apple's system palette (systemBlue #007AFF light / #0A84FF dark, etc).      */
+
+:root {
+  /* Desktop wallpaper — the surface glass samples */
+  --wall-1: #e8ecf5;
+  --wall-2: #dfe6f2;
+  --wall-blob-a: rgba(120, 155, 255, 0.55);
+  --wall-blob-b: rgba(255, 155, 190, 0.42);
+  --wall-blob-c: rgba(120, 220, 220, 0.40);
+
+  /* Glass (layer 1) */
+  --glass-fill: rgba(255, 255, 255, 0.62);
+  --glass-fill-strong: rgba(255, 255, 255, 0.78);
+  --glass-edge: rgba(0, 0, 0, 0.10);
+  --specular: rgba(255, 255, 255, 0.95);
+  --specular-soft: rgba(255, 255, 255, 0.45);
+
+  /* Solid surfaces (layer 2+) */
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-card: #ffffff;
+  --surface-sunken: rgba(0, 0, 0, 0.035);
+  --surface-hover: rgba(0, 0, 0, 0.04);
+  --surface-selected: rgba(0, 122, 255, 0.10);
+
+  /* Labels — Apple's four-step hierarchy */
+  --label: rgba(0, 0, 0, 0.92);
+  --label-2: rgba(0, 0, 0, 0.58);
+  --label-3: rgba(0, 0, 0, 0.38);
+  --label-4: rgba(0, 0, 0, 0.22);
+  --separator: rgba(0, 0, 0, 0.10);
+
+  /* Accents — used sparingly, semantically */
+  --blue: #007aff;
+  --green: #34c759;
+  --orange: #ff9f0a;
+  --red: #ff3b30;
+  --purple: #af52de;
+  --teal: #30b0c7;
+
+  --shadow-window: 0 50px 130px -20px rgba(20, 30, 60, 0.42),
+                   0 12px 40px -12px rgba(20, 30, 60, 0.28);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 14px -6px rgba(0, 0, 0, 0.10);
+  --shadow-pop: 0 12px 40px -8px rgba(0, 0, 0, 0.22);
+
+  /* Continuous corners — Apple never uses sharp ones */
+  --r-window: 15px;
+  --r-lg: 16px;
+  --r-md: 12px;
+  --r-sm: 9px;
+  --r-xs: 6px;
+
+  /* 8pt grid */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px;
+
+  /* Motion — springs approximated as beziers */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-bouncy: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-fast: 0.15s;
+  --dur: 0.3s;
+  --dur-slow: 0.5s;
+}
+
+:root[data-theme="dark"] {
+  --wall-1: #0a0d14;
+  --wall-2: #131a28;
+  --wall-blob-a: rgba(70, 105, 255, 0.42);
+  --wall-blob-b: rgba(190, 80, 200, 0.30);
+  --wall-blob-c: rgba(40, 190, 190, 0.26);
+
+  --glass-fill: rgba(30, 36, 48, 0.58);
+  --glass-fill-strong: rgba(28, 34, 46, 0.80);
+  --glass-edge: rgba(255, 255, 255, 0.12);
+  --specular: rgba(255, 255, 255, 0.22);
+  --specular-soft: rgba(255, 255, 255, 0.07);
+
+  --surface: rgba(22, 27, 37, 0.82);
+  --surface-card: #1b2130;
+  --surface-sunken: rgba(255, 255, 255, 0.035);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-selected: rgba(10, 132, 255, 0.20);
+
+  --label: rgba(255, 255, 255, 0.95);
+  --label-2: rgba(255, 255, 255, 0.62);
+  --label-3: rgba(255, 255, 255, 0.40);
+  --label-4: rgba(255, 255, 255, 0.24);
+  --separator: rgba(255, 255, 255, 0.10);
+
+  --blue: #0a84ff;
+  --green: #30d158;
+  --orange: #ff9f0a;
+  --red: #ff453a;
+  --purple: #bf5af2;
+  --teal: #40cbe0;
+
+  --shadow-window: 0 60px 140px -20px rgba(0, 0, 0, 0.75),
+                   0 16px 50px -12px rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 20px -8px rgba(0, 0, 0, 0.45);
+  --shadow-pop: 0 16px 50px -10px rgba(0, 0, 0, 0.6);
+}
+
+/* ------------------------------------------------------------------ base --- */
+
+* { box-sizing: border-box; }
+
+/* Typography and colour hang off .desktop rather than body, so this file never
+   has to win a specificity fight with the existing globals.css. .desktop is
+   position:fixed and covers everything beneath it regardless. */
+.desktop {
+  /* On the demo Mac this resolves to real SF Pro. Elsewhere it degrades to the
+     platform UI face rather than shipping a webfont we'd have to inline. */
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+  color: var(--label);
+}
+
+/* Numerals in metrics never jitter as values change. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------- wallpaper ---
+   Layer 0. Glass has nothing to refract without something behind it, which is
+   why most web "glass" reads as flat grey — there is no there, there.        */
+
+.desktop {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(165deg, var(--wall-1), var(--wall-2));
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 2.2vw, 44px);
+}
+
+.desktop::before,
+.desktop::after,
+.desktop > .blob {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+}
+
+.desktop::before {
+  width: 46vw; height: 46vw;
+  left: -8vw; top: -14vw;
+  background: var(--wall-blob-a);
+}
+
+.desktop::after {
+  width: 40vw; height: 40vw;
+  right: -10vw; bottom: -16vw;
+  background: var(--wall-blob-b);
+}
+
+.desktop > .blob {
+  width: 34vw; height: 34vw;
+  right: 18vw; top: -12vw;
+  background: var(--wall-blob-c);
+}
+
+/* --------------------------------------------------------------- window ---
+   Layer 1. The whole window is one glass surface: a translucent fill, a
+   saturating blur so colour from the wallpaper bleeds through, a hairline
+   edge, and a specular highlight along the top lip where light would catch.  */
+
+.window {
+  position: relative;
+  width: min(1180px, 100%);
+  height: min(760px, 100%);
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-rows: 52px minmax(0, 1fr);
+  border-radius: var(--r-window);
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--glass-fill);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  box-shadow:
+    inset 0 0.5px 0 0 var(--specular),
+    inset 0 0 0 0.5px var(--glass-edge),
+    var(--shadow-window);
+  animation: window-in 0.6s var(--ease) both;
+}
+
+@keyframes window-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* -------------------------------------------------------------- titlebar --- */
+
+.titlebar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: 0 var(--s-4);
+  border-bottom: 0.5px solid var(--separator);
+  -webkit-app-region: drag;
+}
+
+.traffic {
+  display: flex;
+  gap: 8px;
+  flex: none;
+  margin-right: var(--s-2);
+}
+
+.traffic i {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  display: block;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.14);
+}
+
+.traffic i:nth-child(1) { background: #ff5f57; }
+.traffic i:nth-child(2) { background: #febc2e; }
+.traffic i:nth-child(3) { background: #28c840; }
+
+.app-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--label-2);
+}
+
+.titlebar-spacer { flex: 1; }
+
+/* Toolbar controls sit ON the glass, so they are tinted fills, not more glass. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 0.5px solid var(--glass-edge);
+  background: var(--surface-sunken);
+  color: var(--label-2);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  white-space: nowrap;
+}
+
+.pill:hover { background: var(--surface-hover); color: var(--label); }
+
+.pill.is-live {
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+  border-color: color-mix(in srgb, var(--green) 40%, transparent);
+  color: var(--green);
+}
+
+.pill.is-on {
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 40%, transparent);
+  color: var(--blue);
+}
+
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--label-3);
+  flex: none;
+}
+
+.dot.live {
+  background: var(--green);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 70%, transparent);
+  animation: breathe 2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 55%, transparent); }
+  70%      { box-shadow: 0 0 0 7px transparent; }
+}
+
+.metric {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--label-3);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.metric b {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--label);
+  letter-spacing: -0.02em;
+}
+
+.metric .to { color: var(--label-4); }
+
+/* --------------------------------------------------------------- sidebar ---
+   Layer 1 (glass). A Mac source list — and the vocabulary lives here, so the
+   thing that proves the product is permanently on screen.                     */
+
+.sidebar {
+  border-right: 0.5px solid var(--separator);
+  padding: var(--s-3) 10px var(--s-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.side-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--s-3) 8px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--label-3);
+  text-transform: uppercase;
+}
+
+.side-head .count {
+  font-size: 11px;
+  color: var(--label-4);
+  font-weight: 600;
+}
+
+.side-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--label);
+  cursor: default;
+  min-width: 0;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.side-row:hover { background: var(--surface-hover); }
+.side-row.selected { background: var(--surface-selected); }
+
+.side-row .glyph {
+  width: 17px;
+  flex: none;
+  text-align: center;
+  font-size: 12px;
+  color: var(--label-3);
+}
+
+.side-row .text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-row .uses {
+  font-size: 11px;
+  color: var(--label-4);
+  font-weight: 600;
+  flex: none;
+}
+
+/* THE demo moment: a phrase taught on stage lands here, glows, and settles. */
+.side-row.fresh {
+  animation: taught 6s var(--ease) both;
+}
+
+@keyframes taught {
+  0% {
+    background: color-mix(in srgb, var(--purple) 55%, transparent);
+    box-shadow: 0 0 0 1px var(--purple), 0 0 30px color-mix(in srgb, var(--purple) 55%, transparent);
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  12% { transform: none; opacity: 1; }
+  60% { background: color-mix(in srgb, var(--purple) 20%, transparent); box-shadow: none; }
+  100% { background: transparent; box-shadow: none; }
+}
+
+.side-row .badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--purple);
+  flex: none;
+}
+
+.side-sep {
+  height: 0.5px;
+  background: var(--separator);
+  margin: var(--s-3) 8px;
+}
+
+.side-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px;
+  border-radius: var(--r-sm);
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--label-2);
+}
+
+.avatar {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--blue), var(--purple));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex: none;
+}
+
+/* --------------------------------------------------------------- content ---
+   Layer 2. SOLID. No backdrop-filter below this line — that is the rule.     */
+
+.content {
+  background: var(--surface);
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+/* The hero, the confirmation and the suggestion read as one utterance, so they
+   are centred as a group rather than stranded at opposite ends of the pane. */
+.stage {
+  padding: var(--s-6) var(--s-6) var(--s-5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--s-5);
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--label-3);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+/* --------------------------------------------------------- heard → meant ---
+   The product in one image. Big, but a product headline — not a scoreboard.  */
+
+.hero { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+.heard {
+  font-size: clamp(26px, 3.1vw, 46px);
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  color: var(--label-2);
+  overflow-wrap: anywhere;
+}
+
+.heard .quiet { color: var(--label-4); font-weight: 500; }
+
+.meant {
+  font-size: clamp(21px, 2.5vw, 36px);
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.028em;
+  color: var(--label);
+  overflow-wrap: anywhere;
+}
+
+.hero-in { animation: rise 0.55s var(--ease) both; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+.chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--label-2);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+
+.chip.strong { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.chip.weak   { background: color-mix(in srgb, var(--orange) 15%, transparent); color: var(--orange); }
+.chip.cold   { background: color-mix(in srgb, var(--label-3) 14%, transparent); color: var(--label-2); }
+
+/* ---------------------------------------------------------------- cards ---
+   Layer 3 focus surfaces. Solid fills with a semantic tint, never glass.     */
+
+.card {
+  border-radius: var(--r-lg);
+  background: var(--surface-card);
+  border: 0.5px solid var(--separator);
+  box-shadow: var(--shadow-card);
+  padding: var(--s-4);
+  min-width: 0;
+}
+
+.confirm {
+  border-color: color-mix(in srgb, var(--blue) 45%, transparent);
+  background: color-mix(in srgb, var(--blue) 7%, var(--surface-card));
+  box-shadow: var(--shadow-pop), 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  animation: pop 0.45s var(--ease-bouncy) both;
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.confirm .body { flex: 1; min-width: 0; }
+
+.confirm .what {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.confirm .hint {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--label-3);
+  font-weight: 500;
+}
+
+.actions { display: flex; gap: var(--s-2); flex: none; }
+
+.btn {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: var(--r-xs);
+  border: 0.5px solid var(--separator);
+  background: var(--surface-card);
+  color: var(--label);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.06);
+  transition: filter var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+  white-space: nowrap;
+}
+
+.btn:hover { filter: brightness(0.97); }
+.btn:active { transform: scale(0.975); }
+
+.btn.primary {
+  background: var(--blue);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn.primary:hover { filter: brightness(1.06); }
+
+/* ----------------------------------------------------------- suggestion --- */
+
+.suggestion {
+  border-color: color-mix(in srgb, var(--purple) 40%, transparent);
+  background: color-mix(in srgb, var(--purple) 7%, var(--surface-card));
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  animation: pop 0.5s var(--ease-bouncy) both;
+}
+
+.suggestion .spark {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-size: 14px;
+  background: color-mix(in srgb, var(--purple) 18%, transparent);
+}
+
+.suggestion .why {
+  font-size: 11.5px;
+  color: var(--label-3);
+  font-weight: 550;
+  margin-bottom: 2px;
+}
+
+.suggestion .offer {
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.suggestion .word { color: var(--purple); }
+
+/* ---------------------------------------------------------------- feed --- */
+
+.feed {
+  border-top: 0.5px solid var(--separator);
+  padding: 10px var(--s-6) 12px;
+  background: var(--surface-sunken);
+  min-width: 0;
+}
+
+.feed-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.rail {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+  scrollbar-width: none;
+}
+
+.rail::-webkit-scrollbar { display: none; }
+
+.event {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 25px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-card);
+  border: 0.5px solid var(--separator);
+  font-size: 11.5px;
+  color: var(--label-2);
+  font-weight: 500;
+  max-width: 30ch;
+  animation: rise 0.35s var(--ease) both;
+}
+
+.event .k {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.event .t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.k-heard     { background: var(--orange); }
+.k-resolved  { background: var(--green); }
+.k-awaiting  { background: var(--blue); }
+.k-confirmed { background: var(--green); }
+.k-executed  { background: var(--teal); }
+.k-taught    { background: var(--purple); }
+.k-suggested { background: var(--purple); }
+.k-cancelled { background: var(--label-3); }
+.k-error     { background: var(--red); }
+
+/* ------------------------------------------------------------- scrollbar --- */
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb {
+  background: var(--label-4);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ----------------------------------------------------------- review bar ---
+   Review-only chrome for the unwired preview. Not part of the design; this
+   block and app/preview/ both disappear when the redesign is wired in. */
+
+.review-bar {
+  position: fixed;
+  z-index: 50;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgba(20, 20, 24, 0.72);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: 0 10px 34px -8px rgba(0, 0, 0, 0.55), inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+.review-btn {
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.review-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.review-btn.on { color: #fff; background: rgba(255, 255, 255, 0.18); }
+.review-sep { width: 0.5px; height: 16px; background: rgba(255, 255, 255, 0.22); margin: 0 3px; }

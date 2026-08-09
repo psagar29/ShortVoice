@@ -34,7 +34,29 @@ All three answer `OPTIONS` for CORS.
 npx convex env set DEEPGRAM_API_KEY <key>
 ```
 
-Without it `/tts` and `/listen-token` return 500 with a message saying exactly that.
+### ⚠️ The browser is currently holding the raw Deepgram key
+
+`/listen-token` is meant to mint a 60-second grant so the key never leaves the server. The
+key on this project has neither token-grant permission nor `keys:write`, so both clean
+paths return `403 Insufficient permissions`. The fallback is enabled:
+
+```bash
+npx convex env set DEEPGRAM_ALLOW_RAW_KEY true   # currently set
+```
+
+With it on, `/listen-token` hands the browser the real key. **Anyone with devtools open on
+the dashboard can read it.** Acceptable in a demo room; rotate the key afterwards.
+
+To close it properly — 30 seconds, and the code already supports it — create a key with
+owner/admin scope in the Deepgram console for this project, then:
+
+```bash
+npx convex env set DEEPGRAM_API_KEY <new-key>
+npx convex env remove DEEPGRAM_ALLOW_RAW_KEY
+```
+
+`/listen-token` will start returning `mode: "grant"` and the listener switches subprotocol
+on its own. No code change.
 
 ## Who speaks
 
@@ -51,9 +73,33 @@ A second path into the system that does not involve VoiceOS at all, so it works 
 primary demo if the VoiceOS routing spike fails.
 
 It is primed with **keyterms**: every active trigger and every contact alias and full
-name, taken from the same live subscriptions the vocabulary panel uses. Short, quiet,
-atypical utterances are exactly what generic ASR fumbles — priming with the user's own
-vocabulary is why `"school mom"` transcribes as `"school mom"` and not `"cool mom"`.
+name, taken from the same live subscriptions the vocabulary panel uses.
+
+### The keyterm comparison — measured, not assumed
+
+Same audio through `nova-3` twice, once with the user's vocabulary loaded and once without:
+
+| spoken | keyterms **on** | keyterms **off** |
+|---|---|---|
+| `neel later` | **Neel later.** | **Neil Lader.** / **Kneel Later.** |
+| `school mom` | School mom | School mom. |
+| `team pr tonight` | Team pr tonight | Team PR tonight. |
+
+With priming it lands on `Neel` every run. Without it, it misses every run — but not the
+same way twice, so quote the behaviour on stage, not a specific wrong string.
+
+**Say `"neel later"` on stage, not `"school mom"`.** Without priming, a name the user says
+forty times a day comes back as a different person and a word that isn't one. That is the
+whole argument in a single line, and it is real — reproduce it yourself:
+
+```bash
+node web/scripts/keyterm-compare.mjs "neel later" on
+node web/scripts/keyterm-compare.mjs "neel later" off
+```
+
+Honest caveat: this was measured on Deepgram's own TTS, which is far cleaner than real
+speech. `school mom` survives without priming on clean audio. On the quiet, compressed,
+atypical speech this product exists for, the gap gets wider, not narrower.
 
 Teach a phrase mid-demo and the socket reconnects with the new term included, so a word
 taught at second 30 primes the recogniser at second 40. `nova-3` cannot take keyterms

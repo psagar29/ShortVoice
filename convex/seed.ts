@@ -6,6 +6,16 @@ import { normalizeTrigger } from "./lib/normalize";
 
 type ActionType = Infer<typeof actionType>;
 
+/**
+ * Where every appointment call actually goes.
+ *
+ * A teammate's phone, on purpose. ShortVoice dials a real number and holds a
+ * real conversation, so the destination has to be someone who agreed to pick
+ * up. `SHORTVOICE_CALL_TARGET` in the Convex environment still overrides this
+ * if it is set; point that at a real business only deliberately.
+ */
+const DEMO_CALL_NUMBER = "+19168969399";
+
 const CONTACTS: Array<{ alias: string; fullName: string; slackId?: string }> = [
   { alias: "mom", fullName: "Rashmi" },
   { alias: "laksh", fullName: "Laksh Patel" },
@@ -92,16 +102,15 @@ const PHRASES: Array<{
   // itself as an assistant calling on someone's behalf, negotiates a time
   // inside the stated availability, and reports back.
   //
-  // `to` is a placeholder. SHORTVOICE_CALL_TARGET in the Convex environment
-  // overrides every destination, and it should stay pointed at a number the
-  // team controls until you deliberately choose otherwise.
+  // All four dial DEMO_CALL_NUMBER, a teammate who agreed to pick up.
+  // SHORTVOICE_CALL_TARGET still overrides it if set.
   {
     trigger: "appointment dentist",
     intentTemplate: "Call the dentist to book a check-up appointment {when}",
     actionType: "place_call",
     params: {
       business: "the dentist",
-      to: "",
+      to: DEMO_CALL_NUMBER,
       purpose: "book a dental check-up",
       reason: "a routine check-up and cleaning",
       preferredWindow: "weekday mornings this week",
@@ -115,7 +124,7 @@ const PHRASES: Array<{
     actionType: "place_call",
     params: {
       business: "the doctor's office",
-      to: "",
+      to: DEMO_CALL_NUMBER,
       purpose: "book a GP appointment",
       reason: "a routine consultation",
       preferredWindow: "any weekday afternoon",
@@ -129,7 +138,7 @@ const PHRASES: Array<{
     actionType: "place_call",
     params: {
       business: "the restaurant",
-      to: "",
+      to: DEMO_CALL_NUMBER,
       purpose: "book a table for two",
       reason: "dinner for two",
       preferredWindow: "around seven in the evening",
@@ -143,7 +152,7 @@ const PHRASES: Array<{
     actionType: "place_call",
     params: {
       business: "them",
-      to: "",
+      to: DEMO_CALL_NUMBER,
       purpose: "follow up",
       reason: "following up on an earlier conversation",
       preferredWindow: "any time today",

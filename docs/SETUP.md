@@ -183,7 +183,8 @@ only hear one side of a call.
 ```bash
 npx convex env set A1_TEAM_KEY team-...
 npx convex env set A1_PHONE_NUMBER +1...            # our number, read out as the callback
-npx convex env set SHORTVOICE_CALL_TARGET +1...     # see the warning below
+# SHORTVOICE_CALL_TARGET is optional now: the appointment phrases already
+# dial a teammate (+1 916 896 9399). Set it only to force a different number.
 ```
 
 **Point the number at our webhook.** Do this *after* the code is deployed, or you point at a
@@ -198,10 +199,11 @@ curl https://hack.a1mobile.com/api/numbers/me -H "X-Team-Key: $A1_TEAM_KEY"   # 
 curl -X POST https://hack.a1mobile.com/api/numbers/unpoint -H "X-Team-Key: $A1_TEAM_KEY"  # revert
 ```
 
-> **`SHORTVOICE_CALL_TARGET` overrides every destination**, whatever the phrase says. Keep it
-> pointed at a phone the team controls. Placing automated calls to real businesses that never
-> agreed to them is a different thing from demoing, and it is trivially easy to do by accident
-> while testing. Unset it only when you have decided, deliberately, to call someone real.
+> **Every appointment phrase dials `DEMO_CALL_NUMBER` in `convex/seed.ts`** (+1 916 896 9399,
+> a teammate who agreed to pick up). `SHORTVOICE_CALL_TARGET` overrides it globally if set.
+> Placing automated calls to real businesses that never agreed to them is a different thing
+> from demoing, and it is trivially easy to do by accident while testing. Change the destination
+> only when you have decided, deliberately, to call someone real.
 
 The agent opens every call by identifying itself as an automated assistant, and it speaks from
 an explicit brief (name, callback, availability, reason) rather than a free prompt, so it cannot

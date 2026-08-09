@@ -1,11 +1,15 @@
 "use client";
 
+import { Sparkle } from "@phosphor-icons/react";
 import type { Doc } from "@convex/_generated/dataModel";
 
 /**
- * Beat 3: the system teaches you. This card materialises on its own -- nobody
- * clicked anything, a Convex scheduled action decided you had repeated
- * yourself and wrote a suggestion row.
+ * Beat 3: the system teaches you.
+ *
+ * This card materialises on its own. Nobody clicked anything. A Convex
+ * scheduled action noticed the user had repeated themselves and wrote a
+ * suggestion row, and the subscription put it on screen. That unprompted
+ * arrival is the part a macro list can never do.
  */
 export function SuggestionCard({
   suggestion,
@@ -21,10 +25,15 @@ export function SuggestionCard({
   return (
     <div className="suggestion">
       <span className="why">
-        💡 You&rsquo;ve asked for that {suggestion.evidenceCount} times this hour.
+        <Sparkle size={14} weight="bold" />
+        said {suggestion.evidenceCount} times
       </span>
-      Want to just say <span className="word">&ldquo;{suggestion.proposedTrigger}&rdquo;</span>?
-      <span className="actions">
+
+      <span className="ask">
+        Want to just say <span className="word">{suggestion.proposedTrigger}</span>?
+      </span>
+
+      <span className="acts">
         <button
           className="btn primary"
           onClick={() => onAccept(suggestion.proposedTrigger)}

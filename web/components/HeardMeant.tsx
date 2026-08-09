@@ -3,9 +3,16 @@
 import type { EventDoc } from "@/lib/format";
 
 /**
- * Three words on the left, twenty words of intent on the right. This is the
- * entire product in one image, so it is the biggest thing on the screen and
- * the expansion animates every time it changes.
+ * The expansion. Three words above, twenty words of intent below.
+ *
+ * This is the entire product in one composition, so it owns the largest
+ * column on the stage and it is the only element allowed to animate. The
+ * reveal runs left to right because the sentence is literally growing out
+ * of the fragment above it: a state transition, not decoration.
+ *
+ * The typography is load-bearing. The fragment is set in mono because it
+ * reads as machine shorthand; the expansion is set in sans because it reads
+ * as human language. That contrast is the argument, made without a label.
  */
 export function HeardMeant({
   events,
@@ -19,10 +26,11 @@ export function HeardMeant({
   const heard = events.find((e) => e.kind === "heard");
   const meant = events.find((e) => e.kind === "resolved" || e.kind === "error");
 
-  // Only show the expansion if it belongs to the utterance on screen -- never
-  // pair a new HEARD with the previous MEANT.
+  // Only show the expansion if it belongs to the utterance on screen. Never
+  // pair a new fragment with the previous expansion.
   const meantIsCurrent =
-    meant !== undefined && (heard === undefined || meant._creationTime >= heard._creationTime);
+    meant !== undefined &&
+    (heard === undefined || meant._creationTime >= heard._creationTime);
 
   // Person B logs { band, score, actionType, utterance } on a resolved event.
   // `matchScore` is accepted too so this survives either naming.
@@ -32,39 +40,50 @@ export function HeardMeant({
   const band = typeof detail?.band === "string" ? detail.band : null;
 
   return (
-    <section className="panel">
-      <div className="hm">
-        <div className="panel-label">
-          <span>Heard</span>
-          {meant?.latencyMs ? <span>{meant.latencyMs} ms</span> : null}
+    <section className="panel expansion">
+      <div className="said">
+        <div className="panel-head" style={{ padding: 0, border: 0, marginBottom: 14 }}>
+          <span>Said</span>
+          {meant?.latencyMs ? <span className="count">{meant.latencyMs} ms</span> : null}
         </div>
 
         {interim ? (
-          <div className="heard-text interim">{interim}</div>
+          <div className="said-text pending">{interim}</div>
         ) : heard ? (
-          <div key={heard._id} className="heard-text expand">
-            &ldquo;{heard.text}&rdquo;
+          <div key={heard._id} className="said-text reveal">
+            {heard.text}
           </div>
         ) : (
-          <div className="heard-text empty">waiting for you to say something</div>
+          <div className="said-text idle">waiting for you to say something</div>
         )}
+      </div>
 
-        <div className="panel-label">
+      <div className="meant">
+        <div className="panel-head" style={{ padding: 0, border: 0 }}>
           <span>Meant</span>
-          <span className="arrow-down">↓</span>
         </div>
 
         {meantIsCurrent && meant ? (
-          <div key={meant._id} className={`meant-text expand ${meant.kind === "error" ? "empty" : ""}`}>
-            {meant.text}
+          <>
+            <div
+              key={meant._id}
+              className={`meant-text reveal ${meant.kind === "error" ? "fault" : ""}`}
+            >
+              {meant.text}
+            </div>
+
             {score !== null ? (
-              <div className="score">
-                match {(score * 100).toFixed(0)}%{band ? ` · ${band}` : ""}
+              <div className="meta">
+                <span className="bar">
+                  <span style={{ transform: `scaleX(${Math.min(1, Math.max(0, score))})` }} />
+                </span>
+                <span>match {(score * 100).toFixed(0)}%</span>
+                {band ? <span>{band}</span> : null}
               </div>
             ) : null}
-          </div>
+          </>
         ) : (
-          <div className="meant-text empty">…</div>
+          <div className="meant-text idle">nothing to expand yet</div>
         )}
       </div>
     </section>

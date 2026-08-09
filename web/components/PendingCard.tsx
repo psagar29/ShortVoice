@@ -1,10 +1,11 @@
 "use client";
 
+import { Waveform } from "@phosphor-icons/react";
 import type { Doc } from "@convex/_generated/dataModel";
 
 /**
  * The confirmation state machine, made visible. Nothing consequential fires
- * without passing through this card.
+ * without passing through this bar.
  *
  * The buttons are demo insurance: on stage the user says "yes", but if the
  * mic path fails mid-pitch, E can still drive the beat with a click.
@@ -23,10 +24,12 @@ export function PendingCard({
   if (!pending) return null;
 
   return (
-    <div className="pending">
-      <span className="label">⏳ awaiting &ldquo;yes&rdquo;</span>
-      <span>{pending.confirmationSpeech}</span>
-      <span className="actions">
+    <div className="awaiting">
+      <span className="icon">
+        <Waveform size={22} weight="bold" />
+      </span>
+      <span className="speech">{pending.confirmationSpeech}</span>
+      <span className="acts">
         <button className="btn primary" onClick={onConfirm} disabled={busy} type="button">
           Yes
         </button>

@@ -123,7 +123,8 @@ export default function Dashboard() {
   if (user === undefined) {
     return (
       <div className="setup">
-        <h1>Connecting to Convex…</h1>
+        <h1>Connecting to Convex</h1>
+        <span className="skeleton" style={{ width: 220 }} />
       </div>
     );
   }
@@ -132,15 +133,14 @@ export default function Dashboard() {
     return (
       <div className="setup">
         <h1>No demo user yet</h1>
-        <p>
-          <code>npx convex run seed:seedDemo</code>
-        </p>
+        <p>Seed the deployment, then this page fills itself in.</p>
+        <code>npx convex run seed:seedDemo</code>
       </div>
     );
   }
 
   return (
-    <div className="shell">
+    <div className="stage">
       <Header
         events={events}
         listenState={listener.state}
@@ -149,8 +149,8 @@ export default function Dashboard() {
         onToggleMute={() => setMuted((m) => !m)}
       />
 
-      <div className="main">
-        <div className="col col-left">
+      <div className="floor">
+        <div className="stack">
           <HeardMeant events={events} interim={listener.interim} />
           <PendingCard
             pending={pending}
@@ -160,7 +160,7 @@ export default function Dashboard() {
           />
         </div>
 
-        <div className="col col-right">
+        <div className="aside">
           <Vocabulary phrases={phrases} />
           <SuggestionCard
             suggestion={suggestion}

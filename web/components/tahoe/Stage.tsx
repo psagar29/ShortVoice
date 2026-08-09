@@ -2,6 +2,7 @@
 
 import type { HeroVM, PendingVM, SuggestionVM } from "@/lib/viewModels";
 import { Waveform } from "./Waveform";
+import { GlassEffect } from "@/components/ui/liquid-glass";
 
 const BAND_LABEL: Record<NonNullable<HeroVM["band"]>, string> = {
   strong: "strong match",
@@ -81,7 +82,7 @@ function Confirm({
   onCancel: () => void;
 }) {
   return (
-    <div className="card confirm">
+    <GlassEffect className="lg-card lg-confirm">
       <div className="body">
         <div className="what">{pending.confirmationSpeech}</div>
         <div className="hint">Waiting for “yes”</div>
@@ -94,7 +95,7 @@ function Confirm({
           Yes, send
         </button>
       </div>
-    </div>
+    </GlassEffect>
   );
 }
 
@@ -107,7 +108,7 @@ function Suggestion({
   onAccept: () => void;
 }) {
   return (
-    <div className="card suggestion">
+    <GlassEffect className="lg-card lg-suggestion">
       <span className="spark" aria-hidden>
         ✦
       </span>
@@ -124,7 +125,7 @@ function Suggestion({
           Teach it
         </button>
       </div>
-    </div>
+    </GlassEffect>
   );
 }
 

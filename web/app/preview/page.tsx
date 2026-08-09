@@ -16,6 +16,7 @@ import { ActivityFeed } from "@/components/tahoe/ActivityFeed";
 import { Sidebar } from "@/components/tahoe/Sidebar";
 import { Stage } from "@/components/tahoe/Stage";
 import { Titlebar } from "@/components/tahoe/Titlebar";
+import { GlassFilterDefs } from "@/components/ui/liquid-glass";
 import * as fx from "@/lib/fixtures";
 import type { EventVM, HeroVM, PendingVM, PhraseVM, SuggestionVM } from "@/lib/viewModels";
 
@@ -106,6 +107,9 @@ export default function Preview() {
 
   return (
     <>
+      {/* The displacement filter every GlassEffect references. Once, near root. */}
+      <GlassFilterDefs />
+
       <div className="desktop">
         <div className="blob" />
 

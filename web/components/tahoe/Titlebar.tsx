@@ -1,6 +1,7 @@
 "use client";
 
 import { countWords, type EventVM } from "@/lib/viewModels";
+import { GlassEffect } from "@/components/ui/liquid-glass";
 
 /**
  * Unified translucent titlebar. Controls sitting on glass are tinted fills,
@@ -28,28 +29,26 @@ export function Titlebar({
 
   return (
     <div className="titlebar">
-      <div className="traffic" aria-hidden>
-        <i /><i /><i />
-      </div>
-
+      {/* No traffic lights: on macOS the OS draws its own, and painting fake
+          ones underneath them looks like a mockup of an app rather than an app. */}
       <span className="app-title">ShortVoice</span>
 
-      <button
-        type="button"
-        className={`pill${listening ? " is-live" : ""}`}
-        onClick={onToggleListen}
-      >
-        <span className={`dot${listening ? " live" : ""}`} />
-        {listening ? "Listening" : "Not listening"}
+      <button type="button" className="pill-btn" onClick={onToggleListen}>
+        <GlassEffect className={`lg-pill${listening ? " is-live" : ""}`}>
+          <span className={`dot${listening ? " live" : ""}`} />
+          {listening ? "Listening" : "Not listening"}
+        </GlassEffect>
       </button>
 
       <button
         type="button"
-        className={`pill${muted ? "" : " is-on"}`}
+        className="pill-btn"
         onClick={onToggleMute}
         title="ShortVoice's own Deepgram voice"
       >
-        {muted ? "Muted" : "Speaking"}
+        <GlassEffect className={`lg-pill${muted ? "" : " is-on"}`}>
+          {muted ? "Muted" : "Speaking"}
+        </GlassEffect>
       </button>
 
       <span className="titlebar-spacer" />

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CONVEX_SITE_URL } from "@/lib/env";
-import type { ListenState } from "@/components/Header";
+
+export type ListenState = "off" | "connecting" | "live" | "error";
 
 /**
  * Browser mic -> Deepgram nova-3 -> Convex. A second, independent path into

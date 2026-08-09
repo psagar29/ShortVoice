@@ -694,46 +694,6 @@
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
-/* ----------------------------------------------------------- review bar ---
-   Review-only chrome for the unwired preview. Not part of the design; this
-   block and app/preview/ both disappear when the redesign is wired in. */
-
-.review-bar {
-  position: fixed;
-  z-index: 50;
-  right: 16px;
-  bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px;
-  border-radius: 999px;
-  background: rgba(20, 20, 24, 0.72);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  box-shadow: 0 10px 34px -8px rgba(0, 0, 0, 0.55), inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-}
-
-.review-btn {
-  height: 26px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.62);
-  font-family: inherit;
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
-}
-
-.review-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
-.review-btn.on { color: #fff; background: rgba(255, 255, 255, 0.18); }
-.review-sep { width: 0.5px; height: 16px; background: rgba(255, 255, 255, 0.22); margin: 0 3px; }
-
 /* ------------------------------------------------------------- waveform ---
    Listening state. Flat and grey when idle so the space keeps its structure;
    alive and tinted when the microphone is open. GPU-friendly: only scaleY is
@@ -925,4 +885,69 @@
 .pill-btn:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Document base + setup states
+   ========================================================================== */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--wall-1);
+}
+
+/* Shown by app/providers.tsx before a Convex client exists (connecting, or
+   NEXT_PUBLIC_CONVEX_URL unset) -- outside the .desktop shell, so it needs
+   its own type and colour. */
+.setup {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  color: var(--label);
+}
+.setup h1 {
+  font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.setup p {
+  color: var(--label-2);
+  font-size: 14px;
+}
+.setup code {
+  font-family: var(--font-mono), monospace;
+  background: var(--surface-sunken);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-xs);
+  padding: 8px 12px;
+  color: var(--blue);
+  font-size: 13px;
+}
+
+/* Skeleton matching the final shape, not a spinner. */
+.skeleton {
+  display: inline-block;
+  height: 1em;
+  width: 40%;
+  border-radius: var(--r-xs);
+  background: linear-gradient(
+    90deg,
+    var(--surface-sunken) 0%,
+    var(--separator) 50%,
+    var(--surface-sunken) 100%
+  );
+  background-size: 200% 100%;
+  animation: sweep 1.4s linear infinite;
+}
+
+@keyframes sweep {
+  to { background-position: -200% 0; }
 }

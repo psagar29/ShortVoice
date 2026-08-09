@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "./providers";
-import "./globals.css";
+import "./tahoe.css";
 
 // Geist + Geist Mono, self-hosted by next/font. The pairing is load-bearing,
 // not decorative: compressed input is set in mono because it reads as machine
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0b",
+  themeColor: "#eef1f8",
   width: "device-width",
   initialScale: 1,
 };

@@ -24,10 +24,12 @@ export function HeardMeant({
   const meantIsCurrent =
     meant !== undefined && (heard === undefined || meant._creationTime >= heard._creationTime);
 
-  const score =
-    meant?.kind === "resolved" && typeof meant.detail?.matchScore === "number"
-      ? meant.detail.matchScore
-      : null;
+  // Person B logs { band, score, actionType, utterance } on a resolved event.
+  // `matchScore` is accepted too so this survives either naming.
+  const detail = meant?.kind === "resolved" ? meant.detail : undefined;
+  const rawScore = detail?.score ?? detail?.matchScore;
+  const score = typeof rawScore === "number" ? rawScore : null;
+  const band = typeof detail?.band === "string" ? detail.band : null;
 
   return (
     <section className="panel">
@@ -57,8 +59,7 @@ export function HeardMeant({
             {meant.text}
             {score !== null ? (
               <div className="score">
-                match {(score * 100).toFixed(0)}%
-                {meant.detail?.trigger ? ` · "${meant.detail.trigger}"` : ""}
+                match {(score * 100).toFixed(0)}%{band ? ` · ${band}` : ""}
               </div>
             ) : null}
           </div>

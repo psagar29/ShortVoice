@@ -65,13 +65,14 @@ const ACTION_TYPES = [
   "focus_mode",
   "open_app",
   "web_search",
+  "place_call",
   "speak",
   "custom",
 ] as const;
 type ActionType = (typeof ACTION_TYPES)[number];
 
 /** Everything Convex can do itself. The rest is handed to Person C's Mac. */
-const NETWORK_ACTIONS = new Set<ActionType>(["send_slack", "web_search"]);
+const NETWORK_ACTIONS = new Set<ActionType>(["send_slack", "web_search", "place_call"]);
 
 type PhraseLite = {
   _id: Id<"phrases">;
@@ -785,6 +786,7 @@ export const executeConfirmed = action({
       const result = await ctx.runAction(internal.executors.runNetworkAction, {
         actionType,
         params,
+        userId,
       });
       await ctx.runMutation(internal.pending.setStatus, {
         id: pending._id,

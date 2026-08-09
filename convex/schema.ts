@@ -24,6 +24,7 @@ export const actionType = v.union(
   v.literal("focus_mode"), // DND + close apps + timer -- local
   v.literal("open_app"), // launch/focus an app -- local
   v.literal("web_search"), // flights, lookups -- network
+  v.literal("place_call"), // ShortVoice phones a business on your behalf -- network
   v.literal("speak"), // just say something back
   v.literal("custom"), // freeform intent handed back to VoiceOS
 );
@@ -164,6 +165,58 @@ export default defineSchema({
     ),
     createdAt: v.number(),
   }).index("by_user_status", ["userId", "status"]),
+
+  // --------------------------------------------------------------------------
+  // OUTBOUND PHONE CALLS (a1mobile).
+  //
+  // "appointment dentist" is three words that turn into a real phone call:
+  // ShortVoice dials the business and talks to whoever answers on the user's
+  // behalf. This table is the shared state between the two halves of that,
+  // because they run in different places. `telephony.startCall` writes the row
+  // and asks a1mobile to dial; a1mobile then POSTs our public /voice webhook on
+  // answer, and that request has no memory of why the call was placed. It finds
+  // this row to learn what it is supposed to say.
+  // --------------------------------------------------------------------------
+  calls: defineTable({
+    userId: v.id("users"),
+
+    to: v.string(), // E.164 destination
+    business: v.string(), // "the dentist"
+    purpose: v.string(), // "book a check-up appointment"
+
+    // Everything the agent is allowed to say on the user's behalf. Kept as an
+    // explicit brief rather than a free prompt so the call cannot invent
+    // commitments the user never made.
+    brief: v.object({
+      callerName: v.string(),
+      callbackNumber: v.string(),
+      preferredWindow: v.string(), // "sometime next week, mornings"
+      reason: v.string(), // "routine check-up and cleaning"
+    }),
+
+    status: v.union(
+      v.literal("dialing"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("failed"),
+    ),
+
+    // Grows one entry per webhook turn. Rendered live on the dashboard, which
+    // is what makes the call visible to a room that can only hear one side.
+    transcript: v.array(
+      v.object({
+        role: v.union(v.literal("agent"), v.literal("them")),
+        text: v.string(),
+        at: v.number(),
+      }),
+    ),
+
+    outcome: v.optional(v.string()), // "Booked Tuesday 9:30am"
+    providerCallId: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"]),
 
   // --------------------------------------------------------------------------
   // LIVE DEMO FEED. Every stage of the pipeline writes here; the dashboard

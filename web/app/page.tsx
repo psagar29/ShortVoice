@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 
+import { CallPanel } from "@/components/CallPanel";
 import { Feed } from "@/components/Feed";
 import { Header } from "@/components/Header";
 import { HeardMeant } from "@/components/HeardMeant";
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const contacts = useQuery(api.contacts.listContacts, args);
   const suggestion = useQuery(api.learning.pendingSuggestion, args);
   const pending = useQuery(api.pending.getAwaiting, args);
+  const call = useQuery(api.telephony.liveCall, args);
   const feed = useQuery(
     api.events.feed,
     userId ? { userId, limit: FEED_LIMIT } : "skip",
@@ -152,6 +154,7 @@ export default function Dashboard() {
       <div className="floor">
         <div className="stack">
           <HeardMeant events={events} interim={listener.interim} />
+          <CallPanel call={call} />
           <PendingCard
             pending={pending}
             busy={busy}

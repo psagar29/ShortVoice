@@ -681,3 +681,82 @@ body {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ==========================================================================
+   Live phone call. The room hears one side; this shows the other.
+   ========================================================================== */
+
+.call {
+  flex: none;
+  border: 1px solid var(--line-bright);
+  background: var(--surface-lift);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: reveal 0.32s var(--ease) both;
+}
+.call.live {
+  border-color: var(--signal-edge);
+  background: var(--signal-wash);
+}
+
+.call-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.call.live .call-head {
+  color: var(--signal);
+}
+.call-head .icon {
+  display: flex;
+}
+.call.live .call-head .icon {
+  animation: breathe 1.6s var(--ease) infinite;
+}
+
+.call-log {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.turn {
+  font-size: clamp(0.85rem, 1.05vw, 1rem);
+  line-height: 1.4;
+  color: var(--ink-dim);
+  animation: reveal 0.28s var(--ease) both;
+}
+.turn.agent {
+  color: var(--ink);
+}
+.turn .who {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-ghost);
+  margin-right: 9px;
+}
+.turn.agent .who {
+  color: var(--signal-deep);
+}
+
+.call-idle {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--ink-ghost);
+}
+
+.call-outcome {
+  font-size: clamp(0.9rem, 1.1vw, 1.05rem);
+  color: var(--signal);
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}

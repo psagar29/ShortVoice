@@ -171,7 +171,49 @@ while you are still typing.
 
 ---
 
-## 8. Known state and gotchas
+## 8. Outbound calling (a1mobile)
+
+`"appointment dentist"` becomes a real phone call: ShortVoice dials, introduces itself as an
+assistant calling on someone's behalf, negotiates a time inside the stated availability, and
+reports the outcome back. The transcript streams onto the dashboard live, because a room can
+only hear one side of a call.
+
+**Convex environment:**
+
+```bash
+npx convex env set A1_TEAM_KEY team-...
+npx convex env set A1_PHONE_NUMBER +1...            # our number, read out as the callback
+npx convex env set SHORTVOICE_CALL_TARGET +1...     # see the warning below
+```
+
+**Point the number at our webhook.** Do this *after* the code is deployed, or you point at a
+URL with no `/voice` route:
+
+```bash
+curl -X POST https://hack.a1mobile.com/api/numbers/point \
+  -H "X-Team-Key: $A1_TEAM_KEY" -H "Content-Type: application/json" \
+  -d '{"webhook_url":"https://reminiscent-anteater-318.convex.site/voice"}'
+
+curl https://hack.a1mobile.com/api/numbers/me -H "X-Team-Key: $A1_TEAM_KEY"   # verify
+curl -X POST https://hack.a1mobile.com/api/numbers/unpoint -H "X-Team-Key: $A1_TEAM_KEY"  # revert
+```
+
+> **`SHORTVOICE_CALL_TARGET` overrides every destination**, whatever the phrase says. Keep it
+> pointed at a phone the team controls. Placing automated calls to real businesses that never
+> agreed to them is a different thing from demoing, and it is trivially easy to do by accident
+> while testing. Unset it only when you have decided, deliberately, to call someone real.
+
+The agent opens every call by identifying itself as an automated assistant, and it speaks from
+an explicit brief (name, callback, availability, reason) rather than a free prompt, so it cannot
+invent commitments on the user's behalf.
+
+**Note on trial limits:** `GET /api/numbers/me` reports `verified_numbers: []`. Outbound calls
+to arbitrary destinations may be refused by the provider until numbers are verified. If a call
+fails, `startCall` marks the row failed and speaks a plain reason rather than hanging.
+
+---
+
+## 9. Known state and gotchas
 
 **`OPENAI_API_KEY` is not yet set on the shared Convex deployment.** Until it is, embeddings
 fall back to hashed vectors, so exact and reordered triggers match but genuine paraphrases

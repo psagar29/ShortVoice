@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+!.env.example
+convex/_generated/
+.next/
+out/
+dist/
+*.log
+.DS_Store
+*.mp3
+*.wav
+!assets/*.mp3

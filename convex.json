@@ -1,0 +1,4 @@
+{
+  "$schema": "https://docs.convex.dev/convex.schema.json",
+  "functions": "convex/"
+}

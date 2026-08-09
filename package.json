@@ -1,0 +1,29 @@
+{
+  "name": "shortvoice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A personal translation layer between compressed human speech and full computer intent.",
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy",
+    "seed": "convex run seed:seedDemo",
+    "mcp": "tsx mcp/server.ts",
+    "harness": "tsx scripts/harness.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@deepgram/sdk": "^3.9.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "convex": "^1.17.0",
+    "dotenv": "^16.4.5",
+    "firecrawl": "^4.3.0",
+    "openai": "^4.77.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

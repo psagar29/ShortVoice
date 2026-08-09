@@ -8,9 +8,9 @@ type ActionType = Infer<typeof actionType>;
 
 const CONTACTS: Array<{ alias: string; fullName: string; slackId?: string }> = [
   { alias: "mom", fullName: "Rashmi" },
-  { alias: "laksh", fullName: "Laksh" },
-  { alias: "neel", fullName: "Neel" },
-  { alias: "sarah", fullName: "Sarah" },
+  { alias: "laksh", fullName: "Laksh Patel" },
+  { alias: "neel", fullName: "Neel Shah" },
+  { alias: "sarah", fullName: "Sarah Whitfield" },
   { alias: "team", fullName: "Project Team", slackId: "#project-team" },
 ];
 
@@ -21,6 +21,73 @@ const PHRASES: Array<{
   params: unknown;
   slots: string[];
 }> = [
+  // ---- LOOKUP FAMILY -------------------------------------------------------
+  // The workhorses. Each is one short word plus whatever the user trails after
+  // it, and the trailing words land in a slot. "find keyboard", "find a
+  // standing desk", "find flights to tokyo" are all the same taught phrase
+  // with a different filler, which is precisely what a macro cannot do.
+  {
+    trigger: "find",
+    intentTemplate: "Search the web for {thing} and show me the best options",
+    actionType: "web_search",
+    params: { query: "{thing}" },
+    slots: ["thing"],
+  },
+  {
+    trigger: "search",
+    intentTemplate: "Search the web for {thing}",
+    actionType: "web_search",
+    params: { query: "{thing}" },
+    slots: ["thing"],
+  },
+  {
+    trigger: "look up",
+    intentTemplate: "Look up {thing} and summarise what you find",
+    actionType: "web_search",
+    params: { query: "{thing}" },
+    slots: ["thing"],
+  },
+  {
+    trigger: "price",
+    intentTemplate: "Find the current price of {thing}",
+    actionType: "web_search",
+    params: { query: "current price of {thing}" },
+    slots: ["thing"],
+  },
+  {
+    trigger: "buy",
+    intentTemplate: "Find where to buy {thing} and compare the options",
+    actionType: "web_search",
+    params: { query: "where to buy {thing}" },
+    slots: ["thing"],
+  },
+  {
+    trigger: "docs",
+    intentTemplate: "Find the official documentation for {thing}",
+    actionType: "web_search",
+    params: { query: "{thing} official documentation" },
+    slots: ["thing"],
+  },
+  // No bare "flight" trigger on purpose. "flights" appears inside ordinary
+  // lookup phrasing ("find cheap flights"), so it collided with "find" and
+  // pushed a perfectly clear utterance into the clarify path. "find flights
+  // to tokyo" already resolves through "find".
+  {
+    trigger: "mom flight friday",
+    intentTemplate: "Find afternoon flights from SFO for Mom this {day}",
+    actionType: "web_search",
+    params: { query: "afternoon flights from SFO this Friday", contact: "mom" },
+    slots: ["day"],
+  },
+  {
+    trigger: "near me",
+    intentTemplate: "Find {thing} near me in San Francisco",
+    actionType: "web_search",
+    params: { query: "{thing} near San Francisco" },
+    slots: ["thing"],
+  },
+
+  // ---- MESSAGING -----------------------------------------------------------
   {
     trigger: "team pr tonight",
     intentTemplate: "Tell the project team I'll review the latest PR tonight",
@@ -36,12 +103,51 @@ const PHRASES: Array<{
     slots: ["when"],
   },
   {
+    trigger: "sarah late",
+    intentTemplate: "Text Sarah that I'm running {when} late",
+    actionType: "send_message",
+    params: { contact: "sarah", body: "Running {when} late, sorry" },
+    slots: ["when"],
+  },
+  {
+    trigger: "laksh agree",
+    intentTemplate: "Tell Laksh I agree overall but want to discuss {topic} first",
+    actionType: "send_slack",
+    params: { contact: "laksh", text: "I agree overall, but let's discuss {topic} before we commit" },
+    slots: ["topic"],
+  },
+  {
+    trigger: "team ship",
+    intentTemplate: "Tell the project team we're shipping {when}",
+    actionType: "send_slack",
+    params: { channel: "#project-team", text: "We're shipping {when}" },
+    slots: ["when"],
+  },
+
+  // ---- SCREEN AND ACCESSIBILITY -------------------------------------------
+  // "red" is deliberately not a literal word for its meaning. It is a short,
+  // reliable sound that this user can produce, mapped to the thing they need
+  // most. That mapping is the entire accessibility argument.
+  {
     trigger: "red",
     intentTemplate: "Stop and read the current screen aloud",
     actionType: "read_screen",
     params: {},
     slots: [],
   },
+  {
+    trigger: "where",
+    intentTemplate: "Describe what's currently on my screen",
+    actionType: "read_screen",
+    params: {},
+    slots: [],
+  },
+
+  // ---- FOCUS AND SYSTEM ----------------------------------------------------
+  // Two triggers, one intent. A person keeps the word that comes out easiest.
+  // These carry no {minutes} slot. An unfilled slot renders as empty string,
+  // so slotting the duration produced "start a  minute timer" whenever the
+  // user just said "focus". The number lives in the template instead.
   {
     trigger: "focus",
     intentTemplate: "Do not disturb, close distractions, start a 25 minute timer",
@@ -50,18 +156,50 @@ const PHRASES: Array<{
     slots: [],
   },
   {
-    trigger: "mom flight friday",
-    intentTemplate: "Find afternoon flights from SFO for Mom this {day}",
-    actionType: "web_search",
-    params: { query: "afternoon flights from SFO this Friday", contact: "mom" },
-    slots: ["day"],
+    trigger: "heads down",
+    intentTemplate: "Turn on focus mode for 30 minutes",
+    actionType: "focus_mode",
+    params: { minutes: 30 },
+    slots: [],
   },
   {
-    trigger: "where",
-    intentTemplate: "Describe what's currently on my screen",
-    actionType: "read_screen",
-    params: {},
+    trigger: "quiet",
+    intentTemplate: "Turn on Do Not Disturb",
+    actionType: "focus_mode",
+    params: { minutes: 60, dndOnly: true },
     slots: [],
+  },
+
+  // ---- APPS ----------------------------------------------------------------
+  {
+    trigger: "code",
+    intentTemplate: "Open my editor",
+    actionType: "open_app",
+    params: { app: "Visual Studio Code" },
+    slots: [],
+  },
+  {
+    trigger: "browser",
+    intentTemplate: "Open the browser",
+    actionType: "open_app",
+    params: { app: "Google Chrome" },
+    slots: [],
+  },
+  {
+    trigger: "music",
+    intentTemplate: "Open Spotify",
+    actionType: "open_app",
+    params: { app: "Spotify" },
+    slots: [],
+  },
+
+  // ---- CALENDAR ------------------------------------------------------------
+  {
+    trigger: "sarah thirty",
+    intentTemplate: "Schedule 30 minutes with Sarah {when}",
+    actionType: "create_event",
+    params: { contact: "sarah", minutes: 30, when: "{when}" },
+    slots: ["when"],
   },
 ];
 

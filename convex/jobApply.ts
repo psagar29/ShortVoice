@@ -236,6 +236,15 @@ export const submit = action({
     let submittedCount = 0;
     let failedCount = 0;
 
+    // Whether a résumé exists is a fact about the profile, not about the
+    // snapshot a row took during preparation. Re-reading it here is what makes
+    // a résumé removed after the preview fail its own row honestly instead of
+    // being reported as submitted.
+    const profile = await ctx.runQuery(internal.jobApplicationData.getProfileInternal, {
+      userId,
+    });
+    const resumeAttached = Boolean(profile?.resumeStorageId);
+
     try {
       for (const row of ready) {
         const claimed = await ctx.runMutation(internal.jobApplicationData.claimForSubmission, {
@@ -249,7 +258,7 @@ export const submit = action({
           const unanswered = unansweredRequiredQuestions(
             claimed.formQuestions,
             claimed.answers,
-            claimed.resumeAttached,
+            resumeAttached,
           );
           if (unanswered.length > 0) {
             throw new Error(`This form still needs ${unanswered.join(", ")}.`);

@@ -41,6 +41,7 @@ const ACTION_TYPES = [
   "open_app",
   "web_search",
   "job_apply",
+  "place_call",
   "speak",
   "custom",
 ] as const;

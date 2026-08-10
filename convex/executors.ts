@@ -20,8 +20,10 @@ import { clampWords } from "./lib/text";
 export type ExecutorResult = { ok: boolean; detail: string };
 
 export const runNetworkAction = internalAction({
-  args: { actionType: v.string(), params: v.any() },
-  handler: async (ctx, { actionType, params }): Promise<ExecutorResult> => {
+  args: { actionType: v.string(), params: v.any(), userId: v.optional(v.id("users")) },
+  handler: async (ctx, { actionType, params, userId }): Promise<ExecutorResult> => {
+    // place_call / job_apply need to know who they act for; everything else does not.
+    if (userId) (params as Record<string, unknown>).userId = userId;
     const p = (params ?? {}) as Record<string, unknown>;
     switch (actionType) {
       case "send_slack":
@@ -30,6 +32,8 @@ export const runNetworkAction = internalAction({
         return await webSearch(ctx, p);
       case "job_apply":
         return await submitApplications(ctx, p);
+      case "place_call":
+        return await placeCall(ctx, p);
       case "speak":
       case "custom":
         return { ok: true, detail: String(p.text ?? "Done.") };
@@ -133,4 +137,41 @@ async function submitApplications(
     console.error("[shortvoice] application submission failed:", err);
     return { ok: false, detail: "I couldn't finish sending those applications." };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Outbound phone calls (a1mobile). See convex/telephony.ts for the call itself
+// and convex/http.ts for the webhook that holds the conversation.
+// ---------------------------------------------------------------------------
+
+async function placeCall(
+  ctx: { runAction: (fn: any, args: any) => Promise<any> },
+  params: Record<string, unknown>,
+): Promise<ExecutorResult> {
+  const userId = params.userId;
+  if (!userId) return { ok: false, detail: "I don't know who to place this call for." };
+
+  // SHORTVOICE_CALL_TARGET pins every outbound call to one number regardless of
+  // what the phrase says. Keep it set while testing: an assistant that dials
+  // real businesses unannounced is a different thing from a demo.
+  const override = process.env.SHORTVOICE_CALL_TARGET;
+  const to = String(override ?? params.to ?? "").trim();
+  const business = String(params.business ?? "them");
+
+  if (!to) {
+    return {
+      ok: false,
+      detail: `I don't have a number for ${business}. Set one on the phrase or SHORTVOICE_CALL_TARGET.`,
+    };
+  }
+
+  return await ctx.runAction(internal.telephony.startCall, {
+    userId,
+    to,
+    business,
+    purpose: String(params.purpose ?? "book an appointment"),
+    callerName: String(params.callerName ?? "Pranav"),
+    preferredWindow: String(params.preferredWindow ?? "weekday mornings this week"),
+    reason: String(params.reason ?? "a routine appointment"),
+  });
 }

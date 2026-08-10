@@ -1,6 +1,6 @@
 "use client";
 
-import type { HeroVM, PendingVM, SuggestionVM } from "@/lib/viewModels";
+import type { CallVM, HeroVM, PendingVM, SuggestionVM } from "@/lib/viewModels";
 import { Waveform } from "./Waveform";
 import { GlassEffect } from "@/components/ui/liquid-glass";
 
@@ -129,11 +129,53 @@ function Suggestion({
   );
 }
 
+/**
+ * A live phone call, made visible.
+ *
+ * The room only hears one side of a call, so without this the most impressive
+ * thing ShortVoice does happens entirely offstage. Every webhook turn writes
+ * to the `calls` row and this is a subscription on it, so the transcript grows
+ * on the projector in step with the conversation on the line.
+ */
+function Call({ call }: { call: CallVM }) {
+  const live = call.status === "dialing" || call.status === "in_progress";
+  return (
+    <GlassEffect className="lg-card lg-call">
+      <div className="body" style={{ flex: 1, minWidth: 0 }}>
+        <div className="who">
+          <span className={`pip ${live ? "live" : ""}`} aria-hidden />
+          {call.status === "dialing"
+            ? `Dialing ${call.business}`
+            : call.status === "in_progress"
+              ? `On the line with ${call.business}`
+              : call.status === "failed"
+                ? "Call failed"
+                : "Call ended"}
+        </div>
+
+        {call.turns.length === 0 ? (
+          <div className="line quiet">Ringing…</div>
+        ) : (
+          call.turns.map((t, i) => (
+            <div key={i} className={`line ${t.role}`}>
+              <span className="tag">{t.role === "agent" ? "ShortVoice" : call.business}</span>
+              {t.text}
+            </div>
+          ))
+        )}
+
+        {call.outcome ? <div className="outcome">{call.outcome}</div> : null}
+      </div>
+    </GlassEffect>
+  );
+}
+
 export function Stage({
   hero,
   interim,
   pending,
   suggestion,
+  call,
   listening,
   levels,
   onConfirm,
@@ -144,6 +186,7 @@ export function Stage({
   interim: string;
   pending: PendingVM | null;
   suggestion: SuggestionVM | null;
+  call: CallVM | null;
   listening: boolean;
   levels?: number[];
   onConfirm: () => void;
@@ -156,6 +199,7 @@ export function Stage({
       {pending ? (
         <Confirm pending={pending} onConfirm={onConfirm} onCancel={onCancel} />
       ) : null}
+      {call ? <Call call={call} /> : null}
       {suggestion ? (
         <Suggestion suggestion={suggestion} onAccept={onAccept} />
       ) : null}

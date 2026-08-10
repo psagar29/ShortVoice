@@ -66,13 +66,19 @@ const ACTION_TYPES = [
   "open_app",
   "web_search",
   "job_apply",
+  "place_call",
   "speak",
   "custom",
 ] as const;
 type ActionType = (typeof ACTION_TYPES)[number];
 
 /** Everything Convex can do itself. The rest is handed to Person C's Mac. */
-const NETWORK_ACTIONS = new Set<ActionType>(["send_slack", "web_search", "job_apply"]);
+const NETWORK_ACTIONS = new Set<ActionType>([
+  "send_slack",
+  "web_search",
+  "job_apply",
+  "place_call",
+]);
 
 type PhraseLite = {
   _id: Id<"phrases">;
@@ -848,11 +854,11 @@ export const executeConfirmed = action({
     }
 
     if (NETWORK_ACTIONS.has(actionType)) {
+      // userId is injected into params by the executor for job_apply / place_call.
       const result = await ctx.runAction(internal.executors.runNetworkAction, {
         actionType,
-        // job_apply stores only its batch id; the executor still has to know
-        // whose applications those are, and that is never persisted in params.
-        params: actionType === "job_apply" ? { ...params, userId } : params,
+        params,
+        userId,
       });
       await ctx.runMutation(internal.pending.setStatus, {
         id: pending._id,

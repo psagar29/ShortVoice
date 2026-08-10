@@ -16,6 +16,7 @@ export type ActionType =
   | "open_app"
   | "web_search"
   | "job_apply"
+  | "place_call"
   | "speak"
   | "custom";
 
@@ -156,6 +157,7 @@ export const ACTION_GLYPH: Record<ActionType, string> = {
   open_app: "▤",
   web_search: "⌕",
   job_apply: "◈",
+  place_call: "☏",
   speak: "♪",
   custom: "✳",
 };
@@ -163,3 +165,13 @@ export const ACTION_GLYPH: Record<ActionType, string> = {
 export function countWords(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
+
+export type CallVM = {
+  id: string;
+  /** "the dentist" */
+  business: string;
+  status: "dialing" | "in_progress" | "completed" | "failed";
+  /** Last few turns only. The room needs the gist, not a court record. */
+  turns: { role: "agent" | "them"; text: string }[];
+  outcome?: string;
+};

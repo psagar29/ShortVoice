@@ -16,6 +16,7 @@ import { Titlebar } from "@/components/tahoe/Titlebar";
 import type {
   AnswerDraft,
   ApplicationVM,
+  CallVM,
   ContactVM,
   EventVM,
   HeroVM,
@@ -145,6 +146,20 @@ function toProfileArgs(draft: ProfileDraft) {
   };
 }
 
+/** A finished call lingers briefly so the outcome can be read, then gets out of the way. */
+function toCall(call: Doc<"calls"> | null | undefined): CallVM | null {
+  if (!call) return null;
+  const live = call.status === "dialing" || call.status === "in_progress";
+  if (!live && Date.now() - call.createdAt > 90_000) return null;
+  return {
+    id: call._id,
+    business: call.business,
+    status: call.status,
+    turns: call.transcript.slice(-3).map((t) => ({ role: t.role, text: t.text })),
+    outcome: call.outcome,
+  };
+}
+
 export default function Dashboard() {
   // ---- live subscriptions. Every one of these is a Convex useQuery.
   // Nothing on this page polls, refetches on an interval, or has a refresh
@@ -157,6 +172,7 @@ export default function Dashboard() {
   const contacts = useQuery(api.contacts.listContacts, args);
   const suggestion = useQuery(api.learning.pendingSuggestion, args);
   const pending = useQuery(api.pending.getAwaiting, args);
+  const call = useQuery(api.telephony.liveCall, args);
   const feed = useQuery(
     api.events.feed,
     userId ? { userId, limit: FEED_LIMIT } : "skip",
@@ -415,6 +431,7 @@ export default function Dashboard() {
               interim={listener.interim}
               pending={pendingVM}
               suggestion={suggestionVM}
+              call={toCall(call)}
               listening={listening}
               onConfirm={() => run(() => executeConfirmed({ userId: user._id }))}
               onCancel={() => run(() => cancelPending({ userId: user._id }))}

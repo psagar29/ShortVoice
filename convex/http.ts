@@ -8,14 +8,17 @@
 //   POST /tts           { text, voice? }        -> audio/mpeg
 //   GET  /keyterms      ?userId=...             -> { keyterms: string[] }
 //   POST /listen-token  {}                      -> { token, expiresIn }
+//   POST /voice         (a1mobile webhook)      -> TeXML
+//   POST /voice/turn    (a1mobile webhook)      -> TeXML
 //
 // DEEPGRAM_API_KEY lives in Convex env (`npx convex env set DEEPGRAM_API_KEY ...`)
 // and never reaches the browser. The listener gets a short-lived grant instead.
 
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { openingLine } from "./telephony";
 
 const DEEPGRAM = "https://api.deepgram.com";
 const DEFAULT_VOICE = "aura-2-thalia-en";
@@ -221,5 +224,129 @@ http.route({
   }),
 });
 http.route({ path: "/listen-token", method: "OPTIONS", handler: preflight });
+
+// ---------------------------------------------------------------------------
+// a1mobile voice webhooks -- the phone call half of ShortVoice.
+//
+// a1mobile dials, and on answer POSTs here. The request carries no memory of
+// why the call was placed, so we look up the live `calls` row to find the
+// brief. We answer in TeXML (Telnyx's TwiML dialect): <Say> speaks, <Gather>
+// listens and POSTs the transcript to the action URL for the next turn.
+//
+// These are provider callbacks, not browser calls, so no CORS and no preflight.
+// ---------------------------------------------------------------------------
+
+function texml(body: string): Response {
+  return new Response(`<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`, {
+    status: 200,
+    headers: { "Content-Type": "application/xml" },
+  });
+}
+
+/** TeXML is XML: an unescaped & or < in spoken text breaks the whole document. */
+function xmlEscape(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function speakAndListen(say: string, siteUrl: string): Response {
+  return texml(
+    `<Say voice="Polly.Joanna">${xmlEscape(say)}</Say>` +
+      `<Gather input="speech" language="en-US" speechTimeout="auto" ` +
+      `action="${siteUrl}/voice/turn" method="POST">` +
+      `<Pause length="3"/>` +
+      `</Gather>` +
+      // Reached only if they never speak. Never leave a call hanging silently.
+      `<Say voice="Polly.Joanna">Sorry, I didn't catch that. I'll try again later. Goodbye.</Say>` +
+      `<Hangup/>`,
+  );
+}
+
+function siteUrlFrom(request: Request): string {
+  return process.env.CONVEX_SITE_URL ?? new URL(request.url).origin;
+}
+
+/** Providers post either form-encoded or JSON depending on the event. Accept both. */
+async function readParams(request: Request): Promise<Record<string, string>> {
+  const raw = await request.text();
+  if (!raw) return {};
+  if (raw.trimStart().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      return Object.fromEntries(Object.entries(parsed).map(([k, val]) => [k, String(val)]));
+    } catch {
+      return {};
+    }
+  }
+  return Object.fromEntries(new URLSearchParams(raw));
+}
+
+http.route({
+  path: "/voice",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const call = await ctx.runQuery(internal.telephony.activeCall, {});
+    if (!call) {
+      // Someone dialled our number directly, or the row is gone. Be a polite
+      // human-facing voicemail rather than dead air.
+      return texml(
+        `<Say voice="Polly.Joanna">You've reached ShortVoice, an assistant that places ` +
+          `calls on behalf of its user. There's no call in progress right now. Goodbye.</Say><Hangup/>`,
+      );
+    }
+
+    const line = openingLine(call);
+    await ctx.runMutation(internal.telephony.appendTurn, {
+      callId: call._id,
+      role: "agent",
+      text: line,
+    });
+    return speakAndListen(line, siteUrlFrom(request));
+  }),
+});
+
+http.route({
+  path: "/voice/turn",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const params = await readParams(request);
+    const heard = (params.SpeechResult ?? params.speech_result ?? params.Digits ?? "").trim();
+
+    const call = await ctx.runQuery(internal.telephony.activeCall, {});
+    if (!call) return texml(`<Hangup/>`);
+
+    if (heard) {
+      await ctx.runMutation(internal.telephony.appendTurn, {
+        callId: call._id,
+        role: "them",
+        text: heard,
+      });
+    }
+
+    const { say, done } = await ctx.runAction(internal.telephony.nextLine, {
+      callId: call._id,
+      heard: heard || "(silence)",
+    });
+
+    await ctx.runMutation(internal.telephony.appendTurn, {
+      callId: call._id,
+      role: "agent",
+      text: say,
+    });
+
+    if (!done) return speakAndListen(say, siteUrlFrom(request));
+
+    const outcome = await ctx.runAction(internal.telephony.summarise, { callId: call._id });
+    await ctx.runMutation(internal.telephony.finishCall, {
+      callId: call._id,
+      status: "completed",
+      outcome,
+    });
+    return texml(`<Say voice="Polly.Joanna">${xmlEscape(say)}</Say><Hangup/>`);
+  }),
+});
 
 export default http;

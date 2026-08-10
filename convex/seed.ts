@@ -6,6 +6,16 @@ import { normalizeTrigger } from "./lib/normalize";
 
 type ActionType = Infer<typeof actionType>;
 
+/**
+ * Where every appointment call actually goes.
+ *
+ * A teammate's phone, on purpose. ShortVoice dials a real number and holds a
+ * real conversation, so the destination has to be someone who agreed to pick
+ * up. `SHORTVOICE_CALL_TARGET` in the Convex environment still overrides this
+ * if it is set; point that at a real business only deliberately.
+ */
+const DEMO_CALL_NUMBER = "+19168969399";
+
 const CONTACTS: Array<{ alias: string; fullName: string; slackId?: string }> = [
   { alias: "mom", fullName: "Rashmi" },
   { alias: "laksh", fullName: "Laksh Patel" },
@@ -85,6 +95,70 @@ const PHRASES: Array<{
     actionType: "web_search",
     params: { query: "{thing} near San Francisco" },
     slots: ["thing"],
+  },
+
+  // ---- PHONE CALLS ---------------------------------------------------------
+  // Three words become a real outbound call. ShortVoice dials, introduces
+  // itself as an assistant calling on someone's behalf, negotiates a time
+  // inside the stated availability, and reports back.
+  //
+  // All four dial DEMO_CALL_NUMBER, a teammate who agreed to pick up.
+  // SHORTVOICE_CALL_TARGET still overrides it if set.
+  {
+    trigger: "appointment dentist",
+    intentTemplate: "Call the dentist to book a check-up appointment {when}",
+    actionType: "place_call",
+    params: {
+      business: "the dentist",
+      to: DEMO_CALL_NUMBER,
+      purpose: "book a dental check-up",
+      reason: "a routine check-up and cleaning",
+      preferredWindow: "weekday mornings this week",
+      callerName: "Pranav",
+    },
+    slots: ["when"],
+  },
+  {
+    trigger: "appointment doctor",
+    intentTemplate: "Call the doctor's office to book an appointment {when}",
+    actionType: "place_call",
+    params: {
+      business: "the doctor's office",
+      to: DEMO_CALL_NUMBER,
+      purpose: "book a GP appointment",
+      reason: "a routine consultation",
+      preferredWindow: "any weekday afternoon",
+      callerName: "Pranav",
+    },
+    slots: ["when"],
+  },
+  {
+    trigger: "book table",
+    intentTemplate: "Call the restaurant to book a table {when}",
+    actionType: "place_call",
+    params: {
+      business: "the restaurant",
+      to: DEMO_CALL_NUMBER,
+      purpose: "book a table for two",
+      reason: "dinner for two",
+      preferredWindow: "around seven in the evening",
+      callerName: "Pranav",
+    },
+    slots: ["when"],
+  },
+  {
+    trigger: "call back",
+    intentTemplate: "Call them back about {topic}",
+    actionType: "place_call",
+    params: {
+      business: "them",
+      to: DEMO_CALL_NUMBER,
+      purpose: "follow up",
+      reason: "following up on an earlier conversation",
+      preferredWindow: "any time today",
+      callerName: "Pranav",
+    },
+    slots: ["topic"],
   },
 
   // ---- MESSAGING -----------------------------------------------------------

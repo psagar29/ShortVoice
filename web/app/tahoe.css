@@ -1222,3 +1222,67 @@ html, body {
 @keyframes sweep {
   to { background-position: -200% 0; }
 }
+
+/* ==========================================================================
+   Live phone call. The room hears one side; this shows the other.
+   ========================================================================== */
+
+.lg-call .body { display: flex; flex-direction: column; gap: 7px; }
+
+.lg-call .who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--label-2);
+}
+
+.lg-call .pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--label-4);
+  flex: none;
+}
+.lg-call .pip.live {
+  background: #34c759;
+  box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.18);
+  animation: call-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes call-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.lg-call .line {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--label-2);
+}
+.lg-call .line.agent { color: var(--label-1); }
+.lg-call .line.quiet { color: var(--label-4); }
+
+.lg-call .line .tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--label-4);
+  margin-right: 8px;
+}
+
+.lg-call .outcome {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline, rgba(0, 0, 0, 0.08));
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--label-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-call .pip.live { animation: none; }
+}

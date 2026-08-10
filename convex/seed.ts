@@ -104,8 +104,12 @@ const PHRASES: Array<{
   {
     trigger: "job",
     intentTemplate: "Find {role} roles and apply with my saved resume",
-    actionType: "apply_job",
-    params: { role: "{role}", applicant: "Pranav" },
+    actionType: "job_apply",
+    // Everything trailing "job" becomes {role}, so "job frontend remote",
+    // "job backend", and "job design intern nyc" are one phrase with different
+    // fillers. The resolver stages a real batch from this before it asks for
+    // the yes, so the confirmation names the jobs it actually found.
+    params: { role: "{role}", location: "" },
     slots: ["role"],
   },
 

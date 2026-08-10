@@ -20,3 +20,5 @@ web/.env.local
 web/next-env.d.ts
 web/*.tsbuildinfo
 web/.next-build/
+.vercel/
+.vercelignore

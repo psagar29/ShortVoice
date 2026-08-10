@@ -11,8 +11,10 @@
 // ============================================================================
 
 import { internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { clampWords } from "./lib/text";
 
 export type ExecutorResult = { ok: boolean; detail: string };
@@ -20,7 +22,7 @@ export type ExecutorResult = { ok: boolean; detail: string };
 export const runNetworkAction = internalAction({
   args: { actionType: v.string(), params: v.any(), userId: v.optional(v.id("users")) },
   handler: async (ctx, { actionType, params, userId }): Promise<ExecutorResult> => {
-    // place_call needs to know who it is calling for; everything else does not.
+    // place_call / job_apply need to know who they act for; everything else does not.
     if (userId) (params as Record<string, unknown>).userId = userId;
     const p = (params ?? {}) as Record<string, unknown>;
     switch (actionType) {
@@ -28,10 +30,10 @@ export const runNetworkAction = internalAction({
         return await sendSlack(p);
       case "web_search":
         return await webSearch(ctx, p);
+      case "job_apply":
+        return await submitApplications(ctx, p);
       case "place_call":
         return await placeCall(ctx, p);
-      case "apply_job":
-        return await applyJob(ctx, p);
       case "speak":
       case "custom":
         return { ok: true, detail: String(p.text ?? "Done.") };
@@ -105,6 +107,39 @@ async function webSearch(
 }
 
 // ---------------------------------------------------------------------------
+// Job applications  (simulated board -- see convex/lib/demoJobBoard.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * The only place an application is ever marked submitted. The batch was staged
+ * during resolution -- nothing was sent -- so reaching here means the person
+ * already heard the preview and said yes.
+ */
+async function submitApplications(
+  ctx: ActionCtx,
+  params: Record<string, unknown>,
+): Promise<ExecutorResult> {
+  const userId = String(params.userId ?? "").trim();
+  const batchId = String(params.batchId ?? "").trim();
+  if (!userId || !batchId) {
+    return { ok: false, detail: "I lost track of which applications to send." };
+  }
+
+  try {
+    const result = await ctx.runAction(api.jobApply.submit, {
+      userId: userId as Id<"users">,
+      batchId: batchId as Id<"jobApplicationBatches">,
+    });
+    // `speech` already states the true counts in a readable sentence. Pass it
+    // through unchanged -- rewriting it here is how counts start lying.
+    return { ok: result.ok, detail: result.speech };
+  } catch (err) {
+    console.error("[shortvoice] application submission failed:", err);
+    return { ok: false, detail: "I couldn't finish sending those applications." };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Outbound phone calls (a1mobile). See convex/telephony.ts for the call itself
 // and convex/http.ts for the webhook that holds the conversation.
 // ---------------------------------------------------------------------------
@@ -141,48 +176,3 @@ async function placeCall(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Job applications
-// ---------------------------------------------------------------------------
-
-/**
- * "Job. Frontend. Remote." -> real postings, and a tailored note per posting.
- *
- * Deliberately honest about what it does: it finds live listings through
- * Firecrawl and drafts the application, then records it. It does not silently
- * fire blind submissions into third-party ATS forms on someone's behalf, which
- * is both a worse product and a worse thing to do.
- */
-async function applyJob(
-  ctx: { runAction: (fn: any, args: any) => Promise<any> },
-  params: Record<string, unknown>,
-): Promise<ExecutorResult> {
-  const role = String(params.role ?? params.query ?? "").trim();
-  if (!role) return { ok: false, detail: "I didn't catch what kind of role." };
-
-  const applicant = String(params.applicant ?? "Pranav");
-  let found: { title?: string; url?: string }[] = [];
-
-  try {
-    const result = await ctx.runAction(internal.scrape.searchWeb, {
-      query: `${role} jobs hiring apply`,
-      limit: 5,
-    });
-    if (result?.results?.length) found = result.results;
-  } catch (err) {
-    console.error("[shortvoice] job search failed:", err);
-  }
-
-  if (found.length === 0) {
-    return { ok: true, detail: `I looked for ${clampWords(role, 8)} roles. Nothing new right now.` };
-  }
-
-  const top = found[0]?.title ?? "the top match";
-  return {
-    ok: true,
-    detail: clampWords(
-      `Found ${found.length} ${role} roles. Applying to ${top} as ${applicant}.`,
-      25,
-    ),
-  };
-}

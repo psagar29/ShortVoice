@@ -65,8 +65,8 @@ const ACTION_TYPES = [
   "focus_mode",
   "open_app",
   "web_search",
+  "job_apply",
   "place_call",
-  "apply_job",
   "speak",
   "custom",
 ] as const;
@@ -76,8 +76,8 @@ type ActionType = (typeof ACTION_TYPES)[number];
 const NETWORK_ACTIONS = new Set<ActionType>([
   "send_slack",
   "web_search",
+  "job_apply",
   "place_call",
-  "apply_job",
 ]);
 
 type PhraseLite = {
@@ -587,6 +587,8 @@ type ColdExpansion = {
   app: string;
   minutes: string;
   when: string;
+  role: string;
+  location: string;
 };
 
 async function coldExpand(
@@ -625,6 +627,8 @@ async function coldExpand(
       app: str("application name, or empty"),
       minutes: str("duration in minutes, or empty"),
       when: str("spoken time fragment, or empty"),
+      role: str("job title to apply for, or empty"),
+      location: str("job location, or empty"),
     }),
     timeoutMs: 6_000,
     maxTokens: 300,
@@ -642,6 +646,9 @@ async function coldExpand(
       break;
     case "web_search":
       params = { query: raw.query || raw.intent };
+      break;
+    case "job_apply":
+      params = { role: raw.role, location: raw.location };
       break;
     case "create_event":
       params = { title: raw.body || raw.intent, when: raw.when };
@@ -683,22 +690,42 @@ async function coldExpand(
 // Commit
 // ---------------------------------------------------------------------------
 
-async function commitConfirm(
-  ctx: ActionCtx,
-  opts: {
-    userId: Id<"users">;
-    spoken: string;
-    vector: number[] | null;
-    phraseId?: Id<"phrases">;
-    score: number;
-    band: string;
-    t0: number;
-    resolvedIntent: string;
-    speech: string;
-    actionType: ActionType;
-    params: Record<string, unknown>;
-  },
-): Promise<ResolveResult> {
+type CommitOpts = {
+  userId: Id<"users">;
+  spoken: string;
+  vector: number[] | null;
+  phraseId?: Id<"phrases">;
+  score: number;
+  band: string;
+  t0: number;
+  resolvedIntent: string;
+  speech: string;
+  actionType: ActionType;
+  params: Record<string, unknown>;
+};
+
+async function commitConfirm(ctx: ActionCtx, opts: CommitOpts): Promise<ResolveResult> {
+  let params = opts.params;
+  let speech = opts.speech;
+
+  // job_apply is the one action whose confirmation has to be earned with the
+  // matched jobs. Staging the batch sends nothing, so it is safe to do before
+  // the "yes" -- and it means the preview names what was actually found instead
+  // of what was asked for. Only the batch id survives into `pendingActions`, so
+  // a later "yes" can submit that batch and nothing else.
+  if (opts.actionType === "job_apply") {
+    const prepared = await ctx.runAction(api.jobApply.prepare, {
+      userId: opts.userId,
+      role: String(params.role ?? "").trim(),
+      location: String(params.location ?? "").trim(),
+    });
+    if (!prepared.ok || !prepared.batchId || prepared.readyCount === 0) {
+      return await declineToConfirm(ctx, opts, prepared.speech);
+    }
+    params = { batchId: prepared.batchId };
+    speech = prepared.speech;
+  }
+
   const pendingId: Id<"pendingActions"> = await ctx.runMutation(
     internal.pending.createPending,
     {
@@ -706,9 +733,9 @@ async function commitConfirm(
       utterance: opts.spoken,
       phraseId: opts.phraseId,
       resolvedIntent: opts.resolvedIntent,
-      confirmationSpeech: opts.speech,
+      confirmationSpeech: speech,
       actionType: opts.actionType,
-      params: opts.params,
+      params,
       matchScore: opts.score,
     },
   );
@@ -740,7 +767,7 @@ async function commitConfirm(
     ctx.runMutation(internal.events.log, {
       userId: opts.userId,
       kind: "awaiting" as const,
-      text: opts.speech,
+      text: speech,
       detail: { pendingId },
     }),
   ]);
@@ -751,7 +778,7 @@ async function commitConfirm(
   return {
     kind: "confirm",
     pendingId,
-    confirmationSpeech: opts.speech,
+    confirmationSpeech: speech,
     resolvedIntent: opts.resolvedIntent,
     matchScore: opts.score,
     actionType: opts.actionType,
@@ -759,6 +786,44 @@ async function commitConfirm(
     band: opts.band,
     latencyMs,
   };
+}
+
+/**
+ * Understood, but there is nothing to say yes to -- no matching role, or every
+ * staged application still needs review. Say so, and leave no pending row
+ * behind for a later "yes" to fire.
+ */
+async function declineToConfirm(
+  ctx: ActionCtx,
+  opts: CommitOpts,
+  speech: string,
+): Promise<ResolveResult> {
+  const latencyMs = Date.now() - opts.t0;
+  await Promise.all([
+    ctx.runMutation(internal.resolver.recordUtterance, {
+      userId: opts.userId,
+      raw: opts.spoken,
+      resolvedIntent: opts.resolvedIntent,
+      matchedPhraseId: opts.phraseId,
+      matchScore: opts.score,
+      embedding: opts.vector ?? undefined,
+      outcome: opts.phraseId ? ("matched" as const) : ("expanded" as const),
+    }),
+    ctx.runMutation(internal.events.log, {
+      userId: opts.userId,
+      kind: "resolved" as const,
+      text: speech,
+      detail: {
+        band: opts.band,
+        actionType: opts.actionType,
+        utterance: opts.spoken,
+        confirmable: false,
+      },
+      latencyMs,
+    }),
+  ]);
+  await ctx.scheduler.runAfter(0, internal.learning.maybeSuggest, { userId: opts.userId });
+  return { kind: "clarify", speech, band: opts.band, latencyMs };
 }
 
 // ---------------------------------------------------------------------------
@@ -789,6 +854,7 @@ export const executeConfirmed = action({
     }
 
     if (NETWORK_ACTIONS.has(actionType)) {
+      // userId is injected into params by the executor for job_apply / place_call.
       const result = await ctx.runAction(internal.executors.runNetworkAction, {
         actionType,
         params,

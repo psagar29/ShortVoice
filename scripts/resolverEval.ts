@@ -54,6 +54,11 @@ async function say(userId: Id<"users">, utterance: string) {
   return result;
 }
 
+/** Resolve and leave the pending action standing, for checks about confirming. */
+async function ask(userId: Id<"users">, utterance: string) {
+  return await client.action(api.resolver.resolve, { userId, utterance });
+}
+
 const intentOf = (r: any) => (r.kind === "confirm" ? r.resolvedIntent : r.speech);
 
 // ---------------------------------------------------------------------------
@@ -206,6 +211,11 @@ async function main() {
     `🔊 "${executed.speech}" then 🔊 "${nothing.speech}"`,
   );
 
+  // 11..15 -- job_apply, end to end ----------------------------------------
+  // These need a clean slate: an application already submitted is deliberately
+  // never sent again, so a rerun without --seed has nothing left to confirm.
+  await jobApplyChecks(userId);
+
   // ------------------------------------------------------------------------
   const failed = checks.filter((c) => !c.ok);
   console.log(
@@ -214,6 +224,134 @@ async function main() {
     }\n`,
   );
   process.exit(failed.length === 0 ? 0 : 1);
+}
+
+// ---------------------------------------------------------------------------
+// job_apply
+// ---------------------------------------------------------------------------
+
+/**
+ * The whole two-phase shape, against real rows: a reordered utterance reaches
+ * job_apply, preparation stages without sending, the "yes" is the only thing
+ * that submits, the same job is never submitted twice, and a review row can be
+ * answered and then sent on its own.
+ *
+ * The board itself is simulated (convex/lib/demoJobBoard.ts), so nothing here
+ * contacts an applicant tracking system. What is being checked is our own
+ * lifecycle, which is the part that could lie.
+ */
+async function jobApplyChecks(userId: Id<"users">) {
+  // A profile complete enough for a row to be `ready`. `resume_text` stands in
+  // for an uploaded file -- the Resume question carries a textarea beside its
+  // file field precisely so the form can be completed without one.
+  await client.mutation(api.jobProfiles.saveProfile, {
+    userId,
+    firstName: "Ada",
+    lastName: "Lovelace",
+    email: "ada@example.test",
+    phone: "+1 415 555 0142",
+    location: "San Francisco, CA",
+    workAuthorization: "Yes",
+    defaultAnswers: [{ key: "resume_text", value: "Ada Lovelace, AI engineer." }],
+  });
+
+  await client.action(api.teach.teachPhrase, {
+    userId,
+    trigger: "apply ai",
+    meaning: "apply to AI Engineer roles in San Francisco",
+  });
+
+  // Reordered on purpose: retrieval keys are canonical, so "ai apply" and
+  // "apply ai" are the same question.
+  const asked = await ask(userId, "ai apply");
+  const pending = await client.query(api.pending.getAwaiting, { userId });
+  const paramKeys = Object.keys((pending?.params ?? {}) as Record<string, unknown>);
+  const stagedBefore = await client.query(api.jobApplicationData.listForUser, { userId });
+  const readyBefore = stagedBefore.filter((row) => row.status === "ready");
+
+  const previewed = record(
+    "job_apply: a reordered utterance stages a batch and asks before sending",
+    asked.kind === "confirm" &&
+      (asked as any).actionType === "job_apply" &&
+      pending !== null &&
+      paramKeys.join(",") === "batchId",
+    asked.kind === "confirm"
+      ? `🔊 "${(asked as any).confirmationSpeech}" · pending params: ${paramKeys.join(", ") || "(none)"}`
+      : `resolved to ${asked.kind}: "${(asked as any).speech}"`,
+  );
+
+  record(
+    "job_apply: preparation submits nothing and the preview counts the real rows",
+    previewed &&
+      stagedBefore.length > 0 &&
+      stagedBefore.every((row) => row.status === "ready" || row.status === "review_required") &&
+      typeof (asked as any).confirmationSpeech === "string" &&
+      (asked as any).confirmationSpeech.includes(`${readyBefore.length} ready`),
+    `${stagedBefore.length} staged · ${readyBefore.length} ready · ` +
+      `${stagedBefore.filter((r) => r.status === "review_required").length} to review · ` +
+      `${stagedBefore.filter((r) => r.status === "submitted").length} submitted before the yes`,
+  );
+
+  const executed = await client.action(api.resolver.executeConfirmed, { userId });
+  const afterSubmit = await client.query(api.jobApplicationData.listForUser, { userId });
+  const submitted = afterSubmit.filter((row) => row.status === "submitted");
+  record(
+    "job_apply: only the yes submits, and it says how many truthfully",
+    executed.ok &&
+      typeof executed.speech === "string" &&
+      submitted.length === readyBefore.length &&
+      executed.speech.startsWith(`Submitted ${submitted.length}`),
+    `🔊 "${executed.speech}" · ${submitted.length} rows now submitted`,
+  );
+
+  // Asking again re-ranks the same three listings; the submitted ones are
+  // skipped, which leaves nothing ready and therefore nothing to say yes to.
+  const again = await ask(userId, "apply ai");
+  const pendingAgain = await client.query(api.pending.getAwaiting, { userId });
+  const afterRepeat = await client.query(api.jobApplicationData.listForUser, { userId });
+  record(
+    "job_apply: the same job is never submitted twice, and leaves no pending row",
+    again.kind !== "confirm" &&
+      pendingAgain === null &&
+      afterRepeat.filter((row) => row.status === "submitted").length === submitted.length,
+    `${again.kind}: "${(again as any).speech ?? (again as any).confirmationSpeech}"`,
+  );
+
+  // The review row: answer it, watch it become ready, then send that one alone.
+  const review = afterRepeat.find((row) => row.status === "review_required");
+  if (!review) {
+    record(
+      "job_apply: a review row can be answered, then submitted on its own",
+      false,
+      "no review_required row was staged (rerun with --seed for a clean slate)",
+    );
+    return;
+  }
+
+  const answers = review.missingQuestions.flatMap((question) =>
+    question.fieldNames.map((field) => ({ field, value: "Because the applied team ships." })),
+  );
+  const saved = await client.mutation(api.jobApplicationData.saveReviewAnswers, {
+    userId,
+    applicationId: review._id,
+    answers,
+  });
+  const sent = await client.action(api.jobApply.submit, {
+    userId,
+    batchId: review.batchId,
+    applicationId: review._id,
+  });
+  const finalRows = await client.query(api.jobApplicationData.listForUser, { userId });
+  const finalReview = finalRows.find((row) => row._id === review._id);
+  record(
+    "job_apply: a review row can be answered, then submitted on its own",
+    saved.status === "ready" &&
+      sent.ok &&
+      sent.submittedCount === 1 &&
+      finalReview?.status === "submitted",
+    `answered "${review.missingQuestions.map((q) => q.label).join("; ")}" -> ${saved.status}; ` +
+      `🔊 "${sent.speech}"`,
+  );
 }
 
 main().catch((err) => {

@@ -40,6 +40,8 @@ const ACTION_TYPES = [
   "focus_mode",
   "open_app",
   "web_search",
+  "job_apply",
+  "place_call",
   "speak",
   "custom",
 ] as const;
@@ -292,6 +294,8 @@ async function proposeWithModel(
     body: string;
     query: string;
     app: string;
+    role: string;
+    location: string;
   }>({
     system:
       "A person keeps asking a voice assistant for the same thing in different words. " +
@@ -317,6 +321,8 @@ async function proposeWithModel(
       body: str("message text, or empty"),
       query: str("search query, or empty"),
       app: str("app name, or empty"),
+      role: str("job title to apply for, {curly} if it varies, or empty"),
+      location: str("job location, {curly} if it varies, or empty"),
     }),
     timeoutMs: 8_000,
     maxTokens: 300,
@@ -332,9 +338,11 @@ async function proposeWithModel(
         ? { channel: raw.channel || raw.contact, text: raw.body }
         : raw.actionType === "web_search"
           ? { query: raw.query || raw.body }
-          : raw.actionType === "open_app"
-            ? { app: raw.app }
-            : { text: raw.body || raw.intentTemplate };
+          : raw.actionType === "job_apply"
+            ? { role: raw.role || raw.query, location: raw.location }
+            : raw.actionType === "open_app"
+              ? { app: raw.app }
+              : { text: raw.body || raw.intentTemplate };
 
   return { trigger, intentTemplate: raw.intentTemplate.trim(), actionType: raw.actionType, params };
 }

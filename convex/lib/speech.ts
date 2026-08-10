@@ -93,6 +93,8 @@ export function askFor(actionType: string): string {
       return "Say yes to add it.";
     case "web_search":
       return "Say yes to look it up.";
+    case "job_apply":
+      return "Say yes to apply.";
     case "focus_mode":
     case "open_app":
     case "read_screen":
@@ -159,6 +161,12 @@ function humanSlot(name: string): string {
   }
 }
 
+/**
+ * Executors whose `detail` is already a whole spoken sentence with its own
+ * counts. Prefixing "Done." to those would say the same thing twice.
+ */
+const DETAIL_IS_THE_SENTENCE = new Set(["web_search", "job_apply"]);
+
 /** Spoken confirmation after an action actually fired. */
 export function executedSpeech(actionType: string, detail?: string): string {
   const base = (() => {
@@ -176,11 +184,13 @@ export function executedSpeech(actionType: string, detail?: string): string {
         return "Reading your screen.";
       case "web_search":
         return detail ? detail : "Here's what I found.";
+      case "job_apply":
+        return detail ? detail : "Your applications are in.";
       default:
         return "Done.";
     }
   })();
-  if (actionType !== "web_search" && detail) return tidy(`${base} ${detail}`);
+  if (!DETAIL_IS_THE_SENTENCE.has(actionType) && detail) return tidy(`${base} ${detail}`);
   return base;
 }
 

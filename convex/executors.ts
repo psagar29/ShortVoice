@@ -11,8 +11,10 @@
 // ============================================================================
 
 import { internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { clampWords } from "./lib/text";
 
 export type ExecutorResult = { ok: boolean; detail: string };
@@ -26,6 +28,8 @@ export const runNetworkAction = internalAction({
         return await sendSlack(p);
       case "web_search":
         return await webSearch(ctx, p);
+      case "job_apply":
+        return await submitApplications(ctx, p);
       case "speak":
       case "custom":
         return { ok: true, detail: String(p.text ?? "Done.") };
@@ -96,4 +100,37 @@ async function webSearch(
   }
 
   return { ok: true, detail: `I looked up ${clampWords(query, 12)}. Want me to open the results?` };
+}
+
+// ---------------------------------------------------------------------------
+// Job applications  (simulated board -- see convex/lib/demoJobBoard.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * The only place an application is ever marked submitted. The batch was staged
+ * during resolution -- nothing was sent -- so reaching here means the person
+ * already heard the preview and said yes.
+ */
+async function submitApplications(
+  ctx: ActionCtx,
+  params: Record<string, unknown>,
+): Promise<ExecutorResult> {
+  const userId = String(params.userId ?? "").trim();
+  const batchId = String(params.batchId ?? "").trim();
+  if (!userId || !batchId) {
+    return { ok: false, detail: "I lost track of which applications to send." };
+  }
+
+  try {
+    const result = await ctx.runAction(api.jobApply.submit, {
+      userId: userId as Id<"users">,
+      batchId: batchId as Id<"jobApplicationBatches">,
+    });
+    // `speech` already states the true counts in a readable sentence. Pass it
+    // through unchanged -- rewriting it here is how counts start lying.
+    return { ok: result.ok, detail: result.speech };
+  } catch (err) {
+    console.error("[shortvoice] application submission failed:", err);
+    return { ok: false, detail: "I couldn't finish sending those applications." };
+  }
 }

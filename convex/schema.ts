@@ -24,9 +24,45 @@ export const actionType = v.union(
   v.literal("focus_mode"), // DND + close apps + timer -- local
   v.literal("open_app"), // launch/focus an app -- local
   v.literal("web_search"), // flights, lookups -- network
+  v.literal("job_apply"), // job board -- prepare, confirm, then submit
   v.literal("speak"), // just say something back
   v.literal("custom"), // freeform intent handed back to VoiceOS
 );
+
+export const jobApplicationStatus = v.union(
+  v.literal("ready"),
+  v.literal("review_required"),
+  v.literal("submitting"),
+  v.literal("submitted"),
+  v.literal("failed"),
+);
+
+const answerValue = v.union(v.string(), v.array(v.string()));
+const applicationAnswer = v.object({
+  field: v.string(),
+  value: answerValue,
+});
+const applicationFormField = v.object({
+  name: v.string(),
+  type: v.string(),
+  values: v.optional(
+    v.array(
+      v.object({
+        label: v.string(),
+        value: v.string(),
+      }),
+    ),
+  ),
+});
+const applicationFormQuestion = v.object({
+  label: v.string(),
+  required: v.boolean(),
+  fields: v.array(applicationFormField),
+});
+const missingQuestion = v.object({
+  label: v.string(),
+  fieldNames: v.array(v.string()),
+});
 
 export default defineSchema({
   // --------------------------------------------------------------------------
@@ -89,6 +125,93 @@ export default defineSchema({
     slackId: v.optional(v.string()), // Slack channel or user id
     email: v.optional(v.string()),
   }).index("by_user_alias", ["userId", "alias"]),
+
+  // --------------------------------------------------------------------------
+  // Reusable applicant identity and resume, filled into application forms.
+  // --------------------------------------------------------------------------
+  applicantProfiles: defineTable({
+    userId: v.id("users"),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    location: v.optional(v.string()),
+    latitude: v.optional(v.string()),
+    longitude: v.optional(v.string()),
+    countryShortName: v.optional(v.string()),
+    linkedInUrl: v.optional(v.string()),
+    portfolioUrl: v.optional(v.string()),
+    workAuthorization: v.optional(v.string()),
+    requiresSponsorship: v.optional(v.string()),
+    defaultAnswers: v.array(
+      v.object({
+        key: v.string(),
+        value: answerValue,
+      }),
+    ),
+    resumeStorageId: v.optional(v.id("_storage")),
+    resumeFileName: v.optional(v.string()),
+    resumeContentType: v.optional(v.string()),
+    resumeSize: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  // --------------------------------------------------------------------------
+  // A prepare call creates one batch and stages up to three application rows
+  // from the hardcoded demo listings in convex/lib/demoJobBoard.ts.
+  // --------------------------------------------------------------------------
+  jobApplicationBatches: defineTable({
+    userId: v.id("users"),
+    role: v.string(),
+    location: v.string(),
+    companyName: v.string(),
+    status: v.union(
+      v.literal("preparing"),
+      v.literal("prepared"),
+      v.literal("submitting"),
+      v.literal("complete"),
+      v.literal("failed"),
+    ),
+    applicationIds: v.array(v.id("jobApplications")),
+    readyCount: v.number(),
+    reviewRequiredCount: v.number(),
+    submittedCount: v.number(),
+    failedCount: v.number(),
+    skippedSubmittedCount: v.number(),
+    inProgressCount: v.number(),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "status"]),
+
+  jobApplications: defineTable({
+    userId: v.id("users"),
+    batchId: v.id("jobApplicationBatches"),
+    // Id of the demo listing this row was staged from; one row per user/job.
+    greenhouseJobId: v.number(),
+    jobTitle: v.string(),
+    companyName: v.string(),
+    jobLocation: v.string(),
+    jobUrl: v.string(),
+    status: jobApplicationStatus,
+    resumeAttached: v.boolean(),
+    answers: v.array(applicationAnswer),
+    formQuestions: v.array(applicationFormQuestion),
+    missingQuestions: v.array(missingQuestion),
+    attemptCount: v.number(),
+    submissionStartedAt: v.optional(v.number()),
+    submittedAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_batch", ["batchId"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_job", ["userId", "greenhouseJobId"]),
 
   // --------------------------------------------------------------------------
   // CONFIRMATION STATE MACHINE. Nothing consequential fires without passing

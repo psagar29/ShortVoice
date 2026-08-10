@@ -11,14 +11,22 @@ export function Titlebar({
   events,
   listening,
   muted,
+  applicationCount = 0,
+  reviewCount = 0,
+  inspectorOpen = false,
   onToggleListen,
   onToggleMute,
+  onToggleInspector,
 }: {
   events: EventVM[];
   listening: boolean;
   muted: boolean;
+  applicationCount?: number;
+  reviewCount?: number;
+  inspectorOpen?: boolean;
   onToggleListen: () => void;
   onToggleMute: () => void;
+  onToggleInspector?: () => void;
 }) {
   let spoken = 0;
   let meant = 0;
@@ -50,6 +58,23 @@ export function Titlebar({
           {muted ? "Muted" : "Speaking"}
         </GlassEffect>
       </button>
+
+      {onToggleInspector ? (
+        <button
+          type="button"
+          className="pill-btn"
+          onClick={onToggleInspector}
+          title="Applicant profile and staged applications"
+        >
+          <GlassEffect className={`lg-pill${inspectorOpen ? " is-on" : ""}`}>
+            {reviewCount > 0 ? <span className="dot review" /> : null}
+            Applications
+            {applicationCount > 0 ? (
+              <span className="tnum">{applicationCount}</span>
+            ) : null}
+          </GlassEffect>
+        </button>
+      ) : null}
 
       <span className="titlebar-spacer" />
 

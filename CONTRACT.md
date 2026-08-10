@@ -229,6 +229,69 @@ GET  https://reminiscent-anteater-318.convex.site/keyterms?userId=...
      -> { keyterms: string[] }   // every active trigger, for Deepgram STT priming
 ```
 
+### `job_apply` extension (simulated board — demo data)
+
+`job_apply` runs against a **simulated** job board. The listings are hardcoded demo data in
+[`convex/lib/demoJobBoard.ts`](convex/lib/demoJobBoard.ts) and submission marks our own Convex rows
+`submitted`. There is no applicant tracking system behind it: no HTTP request, no credential, no
+environment variable, and the feature works with nothing configured. What is real is the matching —
+the same token/alias ranking runs over the fixtures, so a different utterance gets different jobs
+and an unrelated fragment gets none.
+
+Its resolved params are `{ role: string, location: string }`. Preparation sends nothing and creates a
+Convex batch before confirmation; submission accepts only that batch ID and runs after confirmation.
+Because the resolver prepares before it asks, the stored `pendingActions.params` for `job_apply` is
+`{ batchId }` alone, and `confirmationSpeech` is the batch preview ("I found 3 roles; 2 ready;
+1 needs review. Apply to the ready ones?"). If nothing is ready, no pending row is created at all.
+
+```ts
+// convex/lib/demoJobBoard.ts  -- hardcoded demo listings, matching, form mapping
+export const DEMO_JOB_LISTINGS: DemoJobListing[]
+export function findDemoJobListings(role, location, limit = 3): DemoJobListing[]
+export function mapDemoApplicationForm(listing, profile): MappedApplicationForm
+export function unansweredRequiredQuestions(formQuestions, answers, resumeAttached): string[]
+
+// convex/jobProfiles.ts
+export const getProfile = query({ args: { userId } })
+export const saveProfile = mutation({ args: { userId, ...profileFields } })
+export const generateResumeUploadUrl = mutation({ args: { userId } })
+
+// convex/jobApplicationData.ts
+export const getBatch = query({ args: { userId, batchId } })
+export const listForUser = query({ args: { userId, status? } })
+export const getProfileInternal = internalQuery({ args: { userId } })
+export const createBatch = internalMutation({ args: { userId, role, location, companyName } })
+export const upsertPreparedApplication = internalMutation({ args: { ...stagedApplication } })
+export const claimForSubmission = internalMutation({ args: { userId, applicationId } })
+export const finishSubmission = internalMutation({ args: { userId, applicationId, ok, error? } })
+
+// convex/jobApply.ts
+export const prepare = action({
+  args: { userId, role: v.string(), location: v.string() },
+  // -> { ok, batchId?, speech, readyCount, reviewRequiredCount, failedCount,
+  //      skippedSubmittedCount, inProgressCount, applications }
+})
+export const submit = action({
+  args: { userId, batchId, applicationId? },
+  // -> { ok, speech, submittedCount, failedCount, reviewRequiredCount, skippedCount }
+})
+```
+
+The associated schema tables are:
+
+- `applicantProfiles`, uniquely addressed by the `by_user` index, with reusable identity/contact,
+  work-authorization/default-answer fields and an optional Convex `_storage` resume ID.
+- `jobApplicationBatches`, indexed by user and user/status, containing the search request, staged
+  row IDs, and truthful aggregate counts.
+- `jobApplications`, indexed by user, batch, user/status, and user/job ID. That field is still named
+  `greenhouseJobId` — it now holds the demo listing's id, and `prepare` returns it under that name.
+  Row status is one of `ready`, `review_required`, `submitting`, `submitted`, or `failed`.
+
+Preparation never marks anything submitted. Submit claims one row at a time, re-checks that every
+required question is still answered (a cleared resume fails that row alone, with its own
+`lastError`), and relies on the user/job index so an application that already went out is never sent
+again.
+
 ---
 
 ## 6. The resolver algorithm (Person B — this is the technical heart)

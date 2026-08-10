@@ -22,33 +22,14 @@ import { normalizeTrigger } from "./lib/normalize";
 import { extractSlots, tidy } from "./lib/render";
 import { learnedPlayback } from "./lib/speech";
 import { temporalPreamble } from "./lib/time";
-import { isTimeToken, phraseDocText, sentenceCase, tokens } from "./lib/text";
-import { attachContact, findContact, type ContactLite } from "./lib/slots";
-
-const ACTION_TYPES = [
-  "send_message",
-  "send_slack",
-  "create_event",
-  "read_screen",
-  "focus_mode",
-  "open_app",
-  "web_search",
-  "speak",
-  "custom",
-] as const;
-type ActionType = (typeof ACTION_TYPES)[number];
-
-type Parsed = {
-  intentTemplate: string;
-  actionType: ActionType;
-  slots: string[];
-  contact: string;
-  channel: string;
-  body: string;
-  query: string;
-  app: string;
-  minutes: string;
-};
+import { phraseDocText, sentenceCase } from "./lib/text";
+import { attachContact, type ContactLite } from "./lib/slots";
+import {
+  ACTION_TYPES,
+  paramsForParsedMeaning,
+  parseMeaningWithRules,
+  type ParsedMeaning,
+} from "./lib/teachRules";
 
 export const teachPhrase = action({
   args: { userId: v.id("users"), trigger: v.string(), meaning: v.string() },
@@ -67,7 +48,7 @@ export const teachPhrase = action({
 
     const parsed =
       (await parseWithModel(cleanTrigger, meaning, contacts, context.phrases.map((p) => p.trigger))) ??
-      parseWithRules(meaning, contacts);
+      parseMeaningWithRules(meaning, contacts);
 
     const intentTemplate = tidy(parsed.intentTemplate) || sentenceCase(meaning.trim());
     // Trust the template over the model's slot list: a {curly} in the sentence
@@ -75,7 +56,7 @@ export const teachPhrase = action({
     const slots = [...new Set([...parsed.slots, ...extractSlots(intentTemplate)])].filter((s) =>
       intentTemplate.includes(`{${s}}`),
     );
-    const params = attachContact(parsed.actionType, paramsFor(parsed), contacts);
+    const params = attachContact(parsed.actionType, paramsForParsedMeaning(parsed), contacts);
 
     // If embedding fails we still teach the phrase -- resolver.ts scores
     // unembedded phrases lexically so the very next utterance still lands.
@@ -136,8 +117,8 @@ async function parseWithModel(
   meaning: string,
   contacts: ContactLite[],
   existingTriggers: string[],
-): Promise<Parsed | null> {
-  const parsed = await chatJSON<Parsed>({
+): Promise<ParsedMeaning | null> {
+  const parsed = await chatJSON<ParsedMeaning>({
     system:
       "You turn a person's plain-English definition of their own shorthand into a " +
       "reusable intent TEMPLATE for a voice assistant.\n" +
@@ -170,6 +151,8 @@ async function parseWithModel(
       query: str("web search query, or empty"),
       app: str("application name, or empty"),
       minutes: str("duration in minutes, or empty"),
+      role: str("job title to apply for, may contain {curly}, or empty"),
+      location: str("job location, may contain {curly}, or empty"),
     }),
     timeoutMs: 6_000,
     maxTokens: 350,
@@ -178,91 +161,3 @@ async function parseWithModel(
   if (!parsed?.intentTemplate?.trim()) return null;
   return parsed;
 }
-
-/**
- * No model, no problem. Keyword routing plus a time-word -> {when} rewrite gets
- * Beat 2 on its feet without the network, which is the difference between a
- * degraded demo and no demo.
- */
-function parseWithRules(meaning: string, contacts: ContactLite[]): Parsed {
-  const m = meaning.trim();
-  const lower = m.toLowerCase();
-
-  const actionType: ActionType = /\bslack\b/.test(lower)
-    ? "send_slack"
-    : /\b(text|message|imessage|sms|tell|let .* know)\b/.test(lower)
-      ? "send_message"
-      : /\b(search|look up|find|google|flights?)\b/.test(lower)
-        ? "web_search"
-        : /\b(calendar|event|schedule|meeting|book)\b/.test(lower)
-          ? "create_event"
-          : /\b(open|launch|start)\b/.test(lower)
-            ? "open_app"
-            : /\b(focus|do not disturb|dnd|quiet)\b/.test(lower)
-              ? "focus_mode"
-              : /\b(read|screen)\b/.test(lower)
-                ? "read_screen"
-                : "custom";
-
-  const contact =
-    contacts.find((c) => tokens(lower).some((t) => t === c.alias))?.alias ??
-    findContact(contacts, lower)?.alias ??
-    "";
-
-  // "text mom that I'm leaving school" -> body "I'm leaving school"
-  const bodyMatch = m.match(/\b(?:that|saying|to say|:)\s+(.+)$/i);
-  const body = (bodyMatch?.[1] ?? m).trim();
-
-  // The whole spoken time expression becomes the template's variable part --
-  // the entire run, so "tomorrow morning" collapses to one {when} rather than
-  // leaving "{when} morning" hanging in the sentence.
-  let intentTemplate = sentenceCase(m);
-  const slots: string[] = [];
-  const words = m.split(/(\s+)/);
-  const firstTime = words.findIndex((w) => isTimeToken(w.toLowerCase().replace(/[^a-z0-9]/g, "")));
-  if (firstTime >= 0) {
-    let lastTime = firstTime;
-    for (let i = firstTime + 2; i < words.length; i += 2) {
-      if (!isTimeToken(words[i].toLowerCase().replace(/[^a-z0-9]/g, ""))) break;
-      lastTime = i;
-    }
-    intentTemplate = sentenceCase(
-      [...words.slice(0, firstTime), "{when}", ...words.slice(lastTime + 1)].join(""),
-    );
-    slots.push("when");
-  }
-
-  return {
-    intentTemplate,
-    actionType,
-    slots,
-    contact,
-    channel: actionType === "send_slack" ? (contact || "#general") : "",
-    body,
-    query: actionType === "web_search" ? body : "",
-    app: "",
-    minutes: "",
-  };
-}
-
-function paramsFor(p: Parsed): Record<string, unknown> {
-  switch (p.actionType) {
-    case "send_message":
-      return { contact: p.contact, body: p.body };
-    case "send_slack":
-      return { channel: p.channel || p.contact, text: p.body };
-    case "web_search":
-      return { query: p.query || p.body };
-    case "create_event":
-      return { title: p.body };
-    case "open_app":
-      return { app: p.app || p.body };
-    case "focus_mode":
-      return { minutes: Number(p.minutes) || 30 };
-    case "read_screen":
-      return {};
-    default:
-      return { text: p.body };
-  }
-}
-

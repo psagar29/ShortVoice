@@ -66,13 +66,19 @@ const ACTION_TYPES = [
   "open_app",
   "web_search",
   "place_call",
+  "apply_job",
   "speak",
   "custom",
 ] as const;
 type ActionType = (typeof ACTION_TYPES)[number];
 
 /** Everything Convex can do itself. The rest is handed to Person C's Mac. */
-const NETWORK_ACTIONS = new Set<ActionType>(["send_slack", "web_search", "place_call"]);
+const NETWORK_ACTIONS = new Set<ActionType>([
+  "send_slack",
+  "web_search",
+  "place_call",
+  "apply_job",
+]);
 
 type PhraseLite = {
   _id: Id<"phrases">;

@@ -25,6 +25,7 @@ export const actionType = v.union(
   v.literal("open_app"), // launch/focus an app -- local
   v.literal("web_search"), // flights, lookups -- network
   v.literal("place_call"), // ShortVoice phones a business on your behalf -- network
+  v.literal("apply_job"), // find roles and submit an application -- network
   v.literal("speak"), // just say something back
   v.literal("custom"), // freeform intent handed back to VoiceOS
 );

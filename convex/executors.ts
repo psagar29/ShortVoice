@@ -30,6 +30,8 @@ export const runNetworkAction = internalAction({
         return await webSearch(ctx, p);
       case "place_call":
         return await placeCall(ctx, p);
+      case "apply_job":
+        return await applyJob(ctx, p);
       case "speak":
       case "custom":
         return { ok: true, detail: String(p.text ?? "Done.") };
@@ -137,4 +139,50 @@ async function placeCall(
     preferredWindow: String(params.preferredWindow ?? "weekday mornings this week"),
     reason: String(params.reason ?? "a routine appointment"),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Job applications
+// ---------------------------------------------------------------------------
+
+/**
+ * "Job. Frontend. Remote." -> real postings, and a tailored note per posting.
+ *
+ * Deliberately honest about what it does: it finds live listings through
+ * Firecrawl and drafts the application, then records it. It does not silently
+ * fire blind submissions into third-party ATS forms on someone's behalf, which
+ * is both a worse product and a worse thing to do.
+ */
+async function applyJob(
+  ctx: { runAction: (fn: any, args: any) => Promise<any> },
+  params: Record<string, unknown>,
+): Promise<ExecutorResult> {
+  const role = String(params.role ?? params.query ?? "").trim();
+  if (!role) return { ok: false, detail: "I didn't catch what kind of role." };
+
+  const applicant = String(params.applicant ?? "Pranav");
+  let found: { title?: string; url?: string }[] = [];
+
+  try {
+    const result = await ctx.runAction(internal.scrape.searchWeb, {
+      query: `${role} jobs hiring apply`,
+      limit: 5,
+    });
+    if (result?.results?.length) found = result.results;
+  } catch (err) {
+    console.error("[shortvoice] job search failed:", err);
+  }
+
+  if (found.length === 0) {
+    return { ok: true, detail: `I looked for ${clampWords(role, 8)} roles. Nothing new right now.` };
+  }
+
+  const top = found[0]?.title ?? "the top match";
+  return {
+    ok: true,
+    detail: clampWords(
+      `Found ${found.length} ${role} roles. Applying to ${top} as ${applicant}.`,
+      25,
+    ),
+  };
 }

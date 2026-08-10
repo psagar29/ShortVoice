@@ -16,6 +16,7 @@ export type ActionType =
   | "open_app"
   | "web_search"
   | "place_call"
+  | "apply_job"
   | "speak"
   | "custom";
 
@@ -84,6 +85,7 @@ export const ACTION_GLYPH: Record<ActionType, string> = {
   open_app: "▤",
   web_search: "⌕",
   place_call: "☏",
+  apply_job: "✎",
   speak: "♪",
   custom: "✳",
 };

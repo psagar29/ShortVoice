@@ -30,6 +30,7 @@ const GERUNDS: Record<string, string> = {
   let: "Letting", give: "Giving", get: "Getting", put: "Putting",
   make: "Making", move: "Moving", close: "Closing", mute: "Muting",
   silence: "Silencing", block: "Blocking", draft: "Drafting", write: "Writing",
+  apply: "Applying", submit: "Submitting", order: "Ordering",
 };
 
 /** First-person -> second-person. Order matters: contractions before bare "i". */
@@ -80,7 +81,18 @@ export function describeIntent(intent: string): string {
   if (!first) return swapped;
   const looksLikeVerb = /^[a-z]+$/i.test(first) && !/^(you|your|the|a|an)$/i.test(first);
   if (!looksLikeVerb) return cap(swapped);
-  return tidy([gerundize(first), ...rest].join(" "));
+
+  // A compound intent carries a second verb after "and", and leaving it bare
+  // produces "Finding remote roles and apply with your resume". Gerundize it
+  // too, but only when it is a verb we actually know, so "salt and pepper"
+  // is never mangled into "salt and peppering".
+  const tail = rest.map((word, i) => {
+    if (rest[i - 1]?.toLowerCase() !== "and") return word;
+    const known = GERUNDS[word.toLowerCase()];
+    return known ? known.toLowerCase() : word;
+  });
+
+  return tidy([gerundize(first), ...tail].join(" "));
 }
 
 /** The ask, tuned per action so "Say yes to send" is never said about a search. */
@@ -93,6 +105,10 @@ export function askFor(actionType: string): string {
       return "Say yes to add it.";
     case "web_search":
       return "Say yes to look it up.";
+    case "apply_job":
+      return "Say yes to apply.";
+    case "place_call":
+      return "Say yes to call.";
     case "focus_mode":
     case "open_app":
     case "read_screen":
@@ -175,12 +191,14 @@ export function executedSpeech(actionType: string, detail?: string): string {
       case "read_screen":
         return "Reading your screen.";
       case "web_search":
-        return detail ? detail : "Here's what I found.";
+      case "apply_job":
+      case "place_call":
+        return detail ? detail : "Done.";
       default:
         return "Done.";
     }
   })();
-  if (actionType !== "web_search" && detail) return tidy(`${base} ${detail}`);
+  if (!["web_search", "apply_job", "place_call"].includes(actionType) && detail) return tidy(`${base} ${detail}`);
   return base;
 }
 

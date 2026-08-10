@@ -97,6 +97,18 @@ const PHRASES: Array<{
     slots: ["thing"],
   },
 
+  // ---- JOB APPLICATIONS ----------------------------------------------------
+  // "Job. Frontend. Remote." -> "Finding frontend remote roles and applying
+  // with your saved resume." Everything after "job" lands in {role}, so the
+  // same phrase covers "job backend", "job design intern", "job nyc".
+  {
+    trigger: "job",
+    intentTemplate: "Find {role} roles and apply with my saved resume",
+    actionType: "apply_job",
+    params: { role: "{role}", applicant: "Pranav" },
+    slots: ["role"],
+  },
+
   // ---- PHONE CALLS ---------------------------------------------------------
   // Three words become a real outbound call. ShortVoice dials, introduces
   // itself as an assistant calling on someone's behalf, negotiates a time

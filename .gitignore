@@ -22,3 +22,6 @@ web/*.tsbuildinfo
 web/.next-build/
 .vercel/
 .vercelignore
+.gstack/
+
+video/
